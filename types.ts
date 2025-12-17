@@ -10,6 +10,8 @@ export interface Product {
   minStock: number;
   lastUpdated: string;
   description?: string;
+  image?: string; // Base64 or URL
+  tags?: string[];
   // AI suggested SKU during product analysis
   suggestedSku?: string;
 }
@@ -20,6 +22,15 @@ export interface Category {
   description: string;
 }
 
+export interface AppSettings {
+  storeName: string;
+  currency: string;
+  defaultLowStockThreshold: number;
+  enableAiFeatures: boolean;
+  enableNotifications: boolean;
+  theme: 'light' | 'dark';
+}
+
 export interface ActivityLog {
   id: string;
   text: string;
@@ -27,8 +38,7 @@ export interface ActivityLog {
   type: 'add' | 'update' | 'delete' | 'ai';
 }
 
-// Added 'settings' to fix errors in App.tsx where 'settings' was used as a Section but not defined in the type
-export type Section = 'dashboard' | 'inventory' | 'categories' | 'reports' | 'ai-research' | 'settings';
+export type Section = 'dashboard' | 'inventory' | 'categories' | 'locations' | 'reports' | 'ai-research' | 'settings' | 'print';
 
 export interface GroundingSource {
   title: string;
