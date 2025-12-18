@@ -52,7 +52,6 @@ import {
   FileUp,
   AlertOctagon,
   RefreshCw,
-  // Added Globe for grounding sources in AI research
   Globe
 } from 'lucide-react';
 import { Product, Category, Section, AppSettings, ActivityLog } from './types';
@@ -98,7 +97,7 @@ const Barcode: React.FC<{ value: string; className?: string }> = ({ value, class
           format: "CODE128",
           width: 1.5,
           height: 40,
-          displayValue: true, // Enabled displayValue to show the SKU number under the barcode
+          displayValue: true,
           fontSize: 14,
           fontOptions: "bold",
           background: 'transparent',
@@ -176,7 +175,7 @@ const DashboardView: React.FC<{ stats: any, inventory: Product[], settings: AppS
         <StatCard label="Total Assets" value={`${settings.currency}${stats.totalValue.toLocaleString()}`} icon={<DollarSign size={24} />} color="bg-blue-600" />
         <StatCard label="Total Items" value={stats.totalItems} icon={<Package size={24} />} color="bg-slate-900" />
         <StatCard label="Low Stock" value={stats.lowStock} icon={<AlertTriangle size={24} />} color="bg-amber-500" warning />
-        <StatCard label="Out of Stock" value={stats.out ofStock} icon={<AlertCircle size={24} />} color="bg-red-500" warning />
+        <StatCard label="Out of Stock" value={stats.outOfStock} icon={<AlertCircle size={24} />} color="bg-red-500" warning />
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 bg-white dark:bg-slate-900 p-8 rounded-[2rem] shadow-sm border dark:border-slate-800">
@@ -262,8 +261,6 @@ const InventoryView: React.FC<{
     </div>
   </div>
 );
-
-// --- New View Components ---
 
 const CategoriesView: React.FC<{ 
   categories: Category[], 
@@ -422,8 +419,6 @@ const AiResearchView: React.FC<{
   </div>
 );
 
-// --- Scanner Component ---
-
 const ScannerModal: React.FC<{ 
   onScan: (res: string) => void, 
   onClose: () => void, 
@@ -440,10 +435,9 @@ const ScannerModal: React.FC<{
         const videoInputDevices = await BrowserMultiFormatReader.listVideoInputDevices();
         if (videoInputDevices.length === 0) return;
         
-        // Prefer back camera if available
         const selectedDeviceId = videoInputDevices.find(d => d.label.toLowerCase().includes('back'))?.deviceId || videoInputDevices[0].deviceId;
         
-        controls = await codeReader.decodeFromVideoDevice(selectedDeviceId, videoRef.current, (result, error) => {
+        controls = await codeReader.decodeFromVideoDevice(selectedDeviceId, videoRef.current, (result) => {
           if (result) {
             onScan(result.getText());
           }
@@ -915,7 +909,7 @@ const App: React.FC = () => {
       {/* Clear All Confirmation Modal */}
       {isClearAllModalOpen && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-[150] flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl w-full max-sm p-8 border dark:border-slate-800 text-center space-y-6">
+          <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl w-full max-w-sm p-8 border dark:border-slate-800 text-center space-y-6">
             <div className="w-20 h-20 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-3xl flex items-center justify-center mx-auto">
               <AlertOctagon size={40} />
             </div>
