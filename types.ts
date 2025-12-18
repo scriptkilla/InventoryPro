@@ -1,3 +1,13 @@
+export type UserRole = 'admin' | 'editor' | 'viewer';
+
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+  role: UserRole;
+  avatarColor: string;
+}
+
 export interface Product {
   id: string;
   sku: string;

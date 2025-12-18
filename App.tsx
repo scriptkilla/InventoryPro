@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   LayoutDashboard, 
@@ -53,9 +52,12 @@ import {
   AlertOctagon,
   RefreshCw,
   Globe,
-  ArrowRightLeft
+  ArrowRightLeft,
+  Users,
+  Shield,
+  UserPlus
 } from 'lucide-react';
-import { Product, Category, Section, AppSettings, ActivityLog } from './types';
+import { Product, Category, Section, AppSettings, ActivityLog, User, UserRole } from './types';
 import { geminiService } from './services/geminiService';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { BrowserMultiFormatReader } from '@zxing/browser';
@@ -75,6 +77,11 @@ const INITIAL_CATEGORIES: Category[] = [
 
 const INITIAL_LOCATIONS: string[] = [
   'Warehouse A', 'Warehouse B', 'Main Storefront', 'Showroom', 'Cold Storage'
+];
+
+const INITIAL_TEAM: User[] = [
+  { id: '1', name: 'Admin User', email: 'admin@inventorypro.ai', role: 'admin', avatarColor: 'bg-purple-500' },
+  { id: '2', name: 'Stock Manager', email: 'manager@inventorypro.ai', role: 'editor', avatarColor: 'bg-blue-500' }
 ];
 
 const DEFAULT_SETTINGS: AppSettings = {
@@ -500,6 +507,7 @@ const App: React.FC = () => {
   });
   const [categories, setCategories] = useState<Category[]>(() => JSON.parse(localStorage.getItem('categories') || JSON.stringify(INITIAL_CATEGORIES)));
   const [locations, setLocations] = useState<string[]>(() => JSON.parse(localStorage.getItem('locations') || JSON.stringify(INITIAL_LOCATIONS)));
+  const [team, setTeam] = useState<User[]>(() => JSON.parse(localStorage.getItem('team_members') || JSON.stringify(INITIAL_TEAM)));
   const [settings, setSettings] = useState<AppSettings>(() => {
     const saved = localStorage.getItem('app_settings');
     return saved ? { ...DEFAULT_SETTINGS, ...JSON.parse(saved) } : DEFAULT_SETTINGS;
@@ -513,6 +521,7 @@ const App: React.FC = () => {
   const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
   const [isClearAllModalOpen, setIsClearAllModalOpen] = useState(false);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
+  const [isUserModalOpen, setIsUserModalOpen] = useState(false);
   const [scannerTarget, setScannerTarget] = useState<'search' | 'sku' | 'audit'>('search');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -532,6 +541,11 @@ const App: React.FC = () => {
   const [modalMinStock, setModalMinStock] = useState(5);
   const [modalImage, setModalImage] = useState<string | null>(null);
 
+  // User Modal State
+  const [newUserName, setNewUserName] = useState('');
+  const [newUserEmail, setNewUserEmail] = useState('');
+  const [newUserRole, setNewUserRole] = useState<UserRole>('viewer');
+
   // Transfer Modal State
   const [transferFrom, setTransferFrom] = useState('');
   const [transferTo, setTransferTo] = useState('');
@@ -545,9 +559,10 @@ const App: React.FC = () => {
     localStorage.setItem('inventory', JSON.stringify(inventory));
     localStorage.setItem('categories', JSON.stringify(categories));
     localStorage.setItem('locations', JSON.stringify(locations));
+    localStorage.setItem('team_members', JSON.stringify(team));
     localStorage.setItem('app_settings', JSON.stringify(settings));
     localStorage.setItem('activity_logs', JSON.stringify(logs));
-  }, [inventory, categories, locations, settings, logs]);
+  }, [inventory, categories, locations, settings, logs, team]);
 
   useEffect(() => {
     if (toast) {
@@ -601,6 +616,40 @@ const App: React.FC = () => {
     }
     setIsModalOpen(false);
     setToast({ message: 'Saved successfully', type: 'success' });
+  };
+
+  const handleAddUser = (e: React.FormEvent) => {
+    e.preventDefault();
+    const colors = ['bg-red-500', 'bg-blue-500', 'bg-emerald-500', 'bg-purple-500', 'bg-amber-500', 'bg-pink-500'];
+    const newUser: User = {
+      id: Date.now().toString(),
+      name: newUserName,
+      email: newUserEmail,
+      role: newUserRole,
+      avatarColor: colors[Math.floor(Math.random() * colors.length)]
+    };
+    setTeam(prev => [...prev, newUser]);
+    addLog(`Added team member: ${newUserName}`, 'update');
+    setIsUserModalOpen(false);
+    setNewUserName('');
+    setNewUserEmail('');
+    setToast({ message: 'Team member added', type: 'success' });
+  };
+
+  const handleRemoveUser = (id: string) => {
+    const user = team.find(u => u.id === id);
+    if (user?.role === 'admin' && team.filter(u => u.role === 'admin').length <= 1) {
+      setToast({ message: 'Cannot remove the last admin', type: 'error' });
+      return;
+    }
+    setTeam(prev => prev.filter(u => u.id !== id));
+    addLog(`Removed team member: ${user?.name}`, 'delete');
+    setToast({ message: 'Member removed', type: 'info' });
+  };
+
+  const handleUpdateUserRole = (id: string, role: UserRole) => {
+    setTeam(prev => prev.map(u => u.id === id ? { ...u, role } : u));
+    setToast({ message: 'Role updated', type: 'success' });
   };
 
   const handleTransfer = (e: React.FormEvent) => {
@@ -831,7 +880,9 @@ const App: React.FC = () => {
             {activeSection === 'categories' && <CategoriesView categories={categories} inventory={inventory} onAdd={() => setIsCategoryModalOpen(true)} onEdit={c => {setEditingCategory(c); setIsCategoryModalOpen(true);}} onDelete={id => setCategories(prev => prev.filter(c => c.id !== id))} />}
             {activeSection === 'locations' && <LocationsView locations={locations} inventory={inventory} onAdd={() => setIsLocationModalOpen(true)} onDelete={l => setLocations(prev => prev.filter(loc => loc !== l))} />}
             {activeSection === 'settings' && <div className="space-y-8 animate-in slide-in-from-bottom-4 max-w-4xl">
-              <div><h2 className="text-3xl font-black">Settings</h2><p className="text-slate-500 dark:text-slate-400 font-medium">Data & Tools</p></div>
+              <div className="flex justify-between items-end">
+                <div><h2 className="text-3xl font-black">Settings</h2><p className="text-slate-500 dark:text-slate-400 font-medium">Control center & team management</p></div>
+              </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="bg-white dark:bg-slate-900 p-8 rounded-[2rem] border dark:border-slate-800 space-y-4">
                   <h3 className="text-xs font-black uppercase tracking-widest text-slate-400">System Tools</h3>
@@ -863,6 +914,54 @@ const App: React.FC = () => {
                   </div>
                 </div>
               </div>
+              
+              {/* Team & Permissions Section */}
+              <div className="bg-white dark:bg-slate-900 p-8 rounded-[2rem] border dark:border-slate-800 space-y-6">
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-purple-100 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 rounded-xl flex items-center justify-center">
+                      <Shield size={20}/>
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-black">Team & Permissions</h3>
+                      <p className="text-xs text-slate-400 font-medium">Manage who can access and edit inventory</p>
+                    </div>
+                  </div>
+                  <button onClick={() => setIsUserModalOpen(true)} className="p-2.5 bg-purple-600 text-white rounded-xl hover:bg-purple-700 transition-all flex items-center gap-2 font-bold text-xs uppercase tracking-widest">
+                    <UserPlus size={16}/> <span className="hidden sm:inline">Add Member</span>
+                  </button>
+                </div>
+
+                <div className="space-y-3">
+                  {team.map(member => (
+                    <div key={member.id} className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl group transition-all hover:bg-slate-100 dark:hover:bg-slate-800">
+                      <div className="flex items-center gap-4">
+                        <div className={`w-10 h-10 ${member.avatarColor} rounded-full flex items-center justify-center text-white font-black text-sm uppercase`}>
+                          {member.name.charAt(0)}
+                        </div>
+                        <div>
+                          <p className="font-bold text-sm">{member.name}</p>
+                          <p className="text-[10px] text-slate-400 font-medium">{member.email}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <select 
+                          value={member.role} 
+                          onChange={(e) => handleUpdateUserRole(member.id, e.target.value as UserRole)}
+                          className="bg-white dark:bg-slate-900 border dark:border-slate-700 rounded-lg px-3 py-1.5 text-xs font-bold outline-none focus:ring-2 focus:ring-purple-500"
+                        >
+                          <option value="admin">Admin</option>
+                          <option value="editor">Editor</option>
+                          <option value="viewer">Viewer</option>
+                        </select>
+                        <button onClick={() => handleRemoveUser(member.id)} className="p-2 text-slate-400 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100">
+                          <Trash2 size={16}/>
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>}
             {activeSection === 'print' && <div className="space-y-6">
               <h2 className="text-3xl font-black">Print Center</h2>
@@ -882,6 +981,7 @@ const App: React.FC = () => {
         </main>
       </div>
 
+      {/* Modals Section */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
           <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-lg p-6 lg:p-8 border dark:border-slate-800 overflow-y-auto max-h-[90vh] relative custom-scrollbar">
@@ -966,6 +1066,54 @@ const App: React.FC = () => {
               </div>
 
               <button className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-blue-700 shadow-xl shadow-blue-500/20 transition-all">Save Changes</button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Team Member Modal */}
+      {isUserModalOpen && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl w-full max-w-sm p-8 border dark:border-slate-800 space-y-6 animate-in zoom-in-95">
+             <div className="flex justify-between items-center">
+              <h3 className="text-xl font-black">Add Team Member</h3>
+              <button onClick={() => setIsUserModalOpen(false)} className="p-1 text-slate-400 hover:text-slate-100"><X/></button>
+            </div>
+            <form onSubmit={handleAddUser} className="space-y-4">
+              <div className="space-y-1">
+                <label className="text-[10px] font-black uppercase text-slate-400">Full Name</label>
+                <input 
+                  required 
+                  className="w-full px-4 py-3 border rounded-xl dark:bg-slate-800 dark:border-slate-700 font-bold" 
+                  placeholder="e.g. John Doe"
+                  value={newUserName}
+                  onChange={e => setNewUserName(e.target.value)}
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-black uppercase text-slate-400">Email Address</label>
+                <input 
+                  required 
+                  type="email"
+                  className="w-full px-4 py-3 border rounded-xl dark:bg-slate-800 dark:border-slate-700 font-bold" 
+                  placeholder="john@company.com"
+                  value={newUserEmail}
+                  onChange={e => setNewUserEmail(e.target.value)}
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-black uppercase text-slate-400">Initial Role</label>
+                <select 
+                  className="w-full px-4 py-3 border rounded-xl dark:bg-slate-800 dark:border-slate-700 font-bold"
+                  value={newUserRole}
+                  onChange={e => setNewUserRole(e.target.value as UserRole)}
+                >
+                  <option value="viewer">Viewer (Read Only)</option>
+                  <option value="editor">Editor (Can edit stock)</option>
+                  <option value="admin">Admin (Full Control)</option>
+                </select>
+              </div>
+              <button className="w-full py-4 bg-purple-600 text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-purple-700 transition-all shadow-xl shadow-purple-500/20">Invite Member</button>
             </form>
           </div>
         </div>
