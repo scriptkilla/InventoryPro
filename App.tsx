@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   LayoutDashboard, 
@@ -536,6 +537,9 @@ const App: React.FC = () => {
   const [transferTo, setTransferTo] = useState('');
   const [transferAmount, setTransferAmount] = useState(1);
 
+  // Import/Export Refs
+  const importInputRef = useRef<HTMLInputElement>(null);
+
   useEffect(() => {
     document.documentElement.classList.toggle('dark', settings.theme === 'dark');
     localStorage.setItem('inventory', JSON.stringify(inventory));
@@ -700,6 +704,79 @@ const App: React.FC = () => {
     }
   };
 
+  // Data Management: Export/Import
+  const handleExport = () => {
+    if (inventory.length === 0) {
+      setToast({ message: 'Nothing to export', type: 'info' });
+      return;
+    }
+    const exportData = inventory.map(item => {
+      const row: any = {
+        SKU: item.sku,
+        Name: item.name,
+        Category: item.category,
+        Price: item.price,
+        'Min Stock': item.minStock,
+        Description: item.description || '',
+        'Total Qty': getTotalQty(item.locationStocks)
+      };
+      locations.forEach(loc => {
+        row[loc] = item.locationStocks[loc] || 0;
+      });
+      return row;
+    });
+
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Inventory");
+    XLSX.writeFile(wb, `${settings.storeName}_Inventory.xlsx`);
+    setToast({ message: 'Inventory exported successfully', type: 'success' });
+  };
+
+  const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const data = new Uint8Array(event.target?.result as ArrayBuffer);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const json = XLSX.utils.sheet_to_json(worksheet);
+
+        const importedProducts: Product[] = json.map((row: any) => {
+          const locStocks: Record<string, number> = {};
+          locations.forEach(loc => {
+            if (row[loc] !== undefined) locStocks[loc] = parseInt(row[loc]) || 0;
+          });
+
+          return {
+            id: row.id || Date.now().toString() + Math.random().toString(36).substr(2, 9),
+            sku: String(row.SKU || row.sku || `IMP-${Math.floor(Math.random() * 10000)}`),
+            name: String(row.Name || row.name || 'Imported Item'),
+            category: String(row.Category || row.category || 'Uncategorized'),
+            price: parseFloat(row.Price || row.price) || 0,
+            minStock: parseInt(row['Min Stock'] || row.minStock) || settings.defaultLowStockThreshold,
+            description: String(row.Description || row.description || ''),
+            locationStocks: locStocks,
+            lastUpdated: new Date().toISOString()
+          };
+        });
+
+        setInventory(prev => [...prev, ...importedProducts]);
+        addLog(`Imported ${importedProducts.length} items from file`, 'add');
+        setToast({ message: `Successfully imported ${importedProducts.length} items`, type: 'success' });
+        if (importInputRef.current) importInputRef.current.value = '';
+      } catch (err) {
+        console.error(err);
+        setToast({ message: 'Failed to import: check file format', type: 'error' });
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  };
+
   const clearAllData = () => {
     setInventory([]);
     setLogs([]);
@@ -763,6 +840,27 @@ const App: React.FC = () => {
                     <ChevronRight size={16}/>
                   </button>
                   <button onClick={() => setIsClearAllModalOpen(true)} className="w-full p-4 bg-red-950/40 border border-red-900/30 rounded-2xl flex items-center gap-2 hover:bg-red-900/40 transition-colors text-center font-bold text-red-500">Wipe All Data</button>
+                </div>
+                {/* Data Management Section */}
+                <div className="bg-white dark:bg-slate-900 p-8 rounded-[2rem] border dark:border-slate-800 space-y-4">
+                  <h3 className="text-xs font-black uppercase tracking-widest text-slate-400">Data Management</h3>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button onClick={handleExport} className="flex flex-col items-center justify-center p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl hover:bg-blue-600 hover:text-white transition-all group">
+                      <Download size={24} className="text-blue-600 group-hover:text-white mb-2"/>
+                      <span className="font-bold text-xs">Export Excel</span>
+                    </button>
+                    <button onClick={() => importInputRef.current?.click()} className="flex flex-col items-center justify-center p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl hover:bg-emerald-600 hover:text-white transition-all group">
+                      <FileUp size={24} className="text-emerald-600 group-hover:text-white mb-2"/>
+                      <span className="font-bold text-xs">Import File</span>
+                      <input 
+                        type="file" 
+                        ref={importInputRef} 
+                        onChange={handleImport} 
+                        className="hidden" 
+                        accept=".xlsx,.xls,.csv"
+                      />
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>}
