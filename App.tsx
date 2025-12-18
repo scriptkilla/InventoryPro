@@ -50,7 +50,10 @@ import {
   Wand2,
   History,
   FileUp,
-  AlertOctagon
+  AlertOctagon,
+  RefreshCw,
+  // Added Globe for grounding sources in AI research
+  Globe
 } from 'lucide-react';
 import { Product, Category, Section, AppSettings, ActivityLog } from './types';
 import { geminiService } from './services/geminiService';
@@ -59,6 +62,8 @@ import { BrowserMultiFormatReader } from '@zxing/browser';
 import * as XLSX from 'xlsx';
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
+// @ts-ignore
+import JsBarcode from 'jsbarcode';
 
 // --- Constants ---
 
@@ -81,7 +86,38 @@ const DEFAULT_SETTINGS: AppSettings = {
   theme: 'dark'
 };
 
-// --- Shared Helper Components ---
+// --- Helper Components ---
+
+const Barcode: React.FC<{ value: string; className?: string }> = ({ value, className }) => {
+  const svgRef = useRef<SVGSVGElement>(null);
+
+  useEffect(() => {
+    if (svgRef.current && value) {
+      try {
+        JsBarcode(svgRef.current, value, {
+          format: "CODE128",
+          width: 1.5,
+          height: 40,
+          displayValue: false,
+          background: 'transparent',
+          lineColor: '#000000',
+        });
+        // Apply dark mode coloring if needed, but for printing/scanning black on white is best
+        // So we keep the barcode black even in dark mode for high contrast
+      } catch (err) {
+        console.error("Barcode generation error:", err);
+      }
+    }
+  }, [value]);
+
+  if (!value) return null;
+
+  return (
+    <div className={`bg-white p-2 rounded-lg flex justify-center items-center ${className}`}>
+      <svg ref={svgRef}></svg>
+    </div>
+  );
+};
 
 const NavItem: React.FC<{ icon: React.ReactNode, label: string, active?: boolean, onClick: () => void }> = ({ icon, label, active, onClick }) => (
   <button 
@@ -226,53 +262,40 @@ const InventoryView: React.FC<{
   </div>
 );
 
-const AiResearchView: React.FC<{ analysis: any, isLoading: boolean, onNavigate: (s: Section) => void }> = ({ analysis, isLoading, onNavigate }) => (
-  <div className="space-y-8 animate-in fade-in duration-500 max-w-4xl mx-auto">
-    <div className="flex items-center justify-between"><div className="flex items-center gap-4"><div className="w-12 h-12 bg-purple-600 rounded-2xl flex items-center justify-center shadow-lg shadow-purple-600/20"><BrainCircuit className="text-white" size={24} /></div><div><h2 className="text-2xl font-black">AI Research Center</h2><p className="text-slate-500 dark:text-slate-400 font-medium">Market intelligence powered by Gemini</p></div></div><button onClick={() => onNavigate('inventory')} className="px-4 py-2 text-slate-500 hover:text-slate-900 dark:hover:text-white font-bold flex items-center gap-2"><ChevronLeft size={20} />Back</button></div>
-    {isLoading ? <div className="bg-white dark:bg-slate-900 p-20 rounded-[2rem] border dark:border-slate-800 flex flex-col items-center justify-center text-center space-y-4"><Loader2 className="animate-spin text-purple-600" size={48} /><p className="font-black uppercase tracking-widest text-sm text-slate-400">Analyzing Market Data...</p></div> : analysis ? (
-      <div className="bg-white dark:bg-slate-900 rounded-[2rem] border dark:border-slate-800 overflow-hidden shadow-sm">
-        <div className="p-8 space-y-6">
-          <div className="flex items-center gap-2 text-purple-600 dark:text-purple-400"><Sparkles size={20} /><h3 className="font-black uppercase tracking-widest text-xs">Analysis Result</h3></div>
-          <div className="prose dark:prose-invert max-w-none"><p className="text-slate-700 dark:text-slate-300 leading-relaxed font-medium whitespace-pre-wrap">{analysis.text}</p></div>
-          {analysis.sources && analysis.sources.length > 0 && (
-            <div className="pt-8 border-t dark:border-slate-800 space-y-4">
-              <h4 className="text-xs font-black uppercase tracking-widest text-slate-400">Grounding Sources</h4>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {analysis.sources.map((source: any, idx: number) => {
-                  const url = source.web?.uri || source.maps?.uri;
-                  const title = source.web?.title || source.maps?.title || "View Source";
-                  if (!url) return null;
-                  return (
-                    <a key={idx} href={url} target="_blank" rel="noopener noreferrer" className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl group hover:bg-slate-100 dark:hover:bg-slate-800 transition-all border dark:border-slate-700">
-                      <span className="text-xs font-bold pr-4 text-slate-600 dark:text-slate-400 group-hover:text-blue-600 truncate">{title}</span>
-                      <Maximize size={14} className="text-slate-300 group-hover:text-blue-600 flex-shrink-0" />
-                    </a>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-    ) : <div className="bg-white dark:bg-slate-900 p-20 rounded-[2rem] border dark:border-slate-800 text-center"><p className="text-slate-400 font-bold uppercase tracking-widest text-sm">Select a product for AI research</p></div>}
-  </div>
-);
+// --- New View Components ---
 
-const CategoriesView: React.FC<{ categories: Category[], inventory: Product[], onAdd: () => void, onEdit: (c: Category) => void, onDelete: (id: string) => void }> = ({ categories, inventory, onAdd, onEdit, onDelete }) => (
+const CategoriesView: React.FC<{ 
+  categories: Category[], 
+  inventory: Product[], 
+  onAdd: () => void, 
+  onEdit: (c: Category) => void, 
+  onDelete: (id: string) => void 
+}> = ({ categories, inventory, onAdd, onEdit, onDelete }) => (
   <div className="space-y-6 animate-in slide-in-from-bottom-4">
-    <div className="flex items-center justify-between"><div><h2 className="text-3xl font-black">Categories</h2><p className="text-slate-500 dark:text-slate-400 font-medium">Organize your inventory</p></div><button onClick={onAdd} className="flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 text-white font-black rounded-2xl shadow-xl shadow-blue-500/20 hover:bg-blue-700 transition-all"><Plus size={20} /><span>New Category</span></button></div>
+    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div><h2 className="text-3xl font-black">Categories</h2><p className="text-slate-500 dark:text-slate-400 font-medium">Organize your inventory catalog</p></div>
+      <button onClick={onAdd} className="flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 text-white font-black rounded-2xl shadow-xl shadow-blue-500/20 hover:bg-blue-700 transition-all"><Plus size={20} /><span>New Category</span></button>
+    </div>
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
       {categories.map(cat => {
         const itemCount = inventory.filter(p => p.category === cat.name).length;
         return (
-          <div key={cat.id} className="bg-white dark:bg-slate-900 p-8 rounded-[2rem] border dark:border-slate-800 group hover:shadow-2xl transition-all">
-            <div className="flex items-start justify-between mb-6">
-              <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-2xl flex items-center justify-center"><Tags size={24}/></div>
-              <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity"><button onClick={() => onEdit(cat)} className="p-2 text-slate-400 hover:text-amber-600"><Edit3 size={16}/></button><button onClick={() => onDelete(cat.id)} className="p-2 text-slate-400 hover:text-red-600"><Trash2 size={16}/></button></div>
+          <div key={cat.id} className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] border dark:border-slate-800 space-y-6 group hover:shadow-2xl transition-all">
+            <div className="flex justify-between items-start">
+              <div className="w-12 h-12 bg-slate-100 dark:bg-slate-800 rounded-2xl flex items-center justify-center text-slate-500 dark:text-slate-400"><Tags size={24}/></div>
+              <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                <button onClick={() => onEdit(cat)} className="p-2 text-slate-400 hover:text-amber-500 transition-colors"><Edit3 size={18}/></button>
+                <button onClick={() => onDelete(cat.id)} className="p-2 text-slate-400 hover:text-red-500 transition-colors"><Trash2 size={18}/></button>
+              </div>
             </div>
-            <h3 className="text-xl font-black mb-2">{cat.name}</h3>
-            <p className="text-sm text-slate-500 dark:text-slate-400 font-medium mb-6 line-clamp-2">{cat.description || "No description provided."}</p>
-            <div className="flex items-center justify-between pt-6 border-t dark:border-slate-800"><p className="text-xs font-black uppercase tracking-widest text-slate-400">Total Items</p><p className="text-lg font-black text-blue-600">{itemCount}</p></div>
+            <div>
+              <h3 className="text-xl font-black">{cat.name}</h3>
+              <p className="text-sm text-slate-500 dark:text-slate-400 mt-2 line-clamp-2">{cat.description}</p>
+            </div>
+            <div className="pt-6 border-t dark:border-slate-800 flex justify-between items-center">
+              <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Active Products</span>
+              <span className="px-4 py-1.5 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-full text-xs font-black">{itemCount} items</span>
+            </div>
           </div>
         );
       })}
@@ -280,18 +303,38 @@ const CategoriesView: React.FC<{ categories: Category[], inventory: Product[], o
   </div>
 );
 
-const LocationsView: React.FC<{ locations: string[], inventory: Product[], onAdd: () => void, onDelete: (l: string) => void }> = ({ locations, inventory, onAdd, onDelete }) => (
+const LocationsView: React.FC<{ 
+  locations: string[], 
+  inventory: Product[], 
+  onAdd: () => void, 
+  onDelete: (l: string) => void 
+}> = ({ locations, inventory, onAdd, onDelete }) => (
   <div className="space-y-6 animate-in slide-in-from-bottom-4">
-    <div className="flex items-center justify-between"><div><h2 className="text-3xl font-black">Locations</h2><p className="text-slate-500 dark:text-slate-400 font-medium">Manage storage zones</p></div><button onClick={onAdd} className="flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 text-white font-black rounded-2xl shadow-xl shadow-blue-500/20 hover:bg-blue-700 transition-all"><Plus size={20} /><span>Add Zone</span></button></div>
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-      {locations.map((loc, idx) => {
+    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div><h2 className="text-3xl font-black">Locations</h2><p className="text-slate-500 dark:text-slate-400 font-medium">Physical storage zones</p></div>
+      <button onClick={onAdd} className="flex items-center justify-center gap-2 px-6 py-3 bg-emerald-600 text-white font-black rounded-2xl shadow-xl shadow-emerald-500/20 hover:bg-emerald-700 transition-all"><Plus size={20} /><span>Add Zone</span></button>
+    </div>
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      {locations.map(loc => {
         const itemCount = inventory.filter(p => p.location === loc).length;
+        const totalStock = inventory.filter(p => p.location === loc).reduce((sum, p) => sum + p.quantity, 0);
         return (
-          <div key={idx} className="bg-white dark:bg-slate-900 p-8 rounded-[2rem] border dark:border-slate-800 group hover:shadow-2xl transition-all">
-            <div className="flex items-start justify-between mb-6"><div className="w-12 h-12 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 rounded-2xl flex items-center justify-center"><MapPin size={24}/></div><button onClick={() => onDelete(loc)} className="p-2 text-slate-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 size={16}/></button></div>
-            <h3 className="text-lg font-black mb-1 truncate">{loc}</h3>
-            <p className="text-xs font-black uppercase tracking-widest text-slate-400 mb-6">Storage Zone</p>
-            <div className="flex items-center justify-between pt-6 border-t dark:border-slate-800"><p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Stock Items</p><p className="text-lg font-black text-emerald-600">{itemCount}</p></div>
+          <div key={loc} className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] border dark:border-slate-800 space-y-6 group hover:shadow-2xl transition-all">
+            <div className="flex justify-between items-start">
+              <div className="w-12 h-12 bg-emerald-50 dark:bg-emerald-900/20 rounded-2xl flex items-center justify-center text-emerald-600 dark:text-emerald-400"><MapPin size={24}/></div>
+              <button onClick={() => onDelete(loc)} className="p-2 text-slate-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 size={18}/></button>
+            </div>
+            <h3 className="text-xl font-black">{loc}</h3>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-2xl">
+                <p className="text-[10px] font-black text-slate-400 uppercase mb-1">SKUs</p>
+                <p className="text-lg font-black">{itemCount}</p>
+              </div>
+              <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-2xl">
+                <p className="text-[10px] font-black text-slate-400 uppercase mb-1">Total Items</p>
+                <p className="text-lg font-black">{totalStock}</p>
+              </div>
+            </div>
           </div>
         );
       })}
@@ -299,31 +342,140 @@ const LocationsView: React.FC<{ locations: string[], inventory: Product[], onAdd
   </div>
 );
 
-const ScannerModal: React.FC<{ onScan: (result: string) => void, onClose: () => void, title?: string }> = ({ onScan, onClose, title = "Scanning..." }) => {
+const AiResearchView: React.FC<{ 
+  analysis: any, 
+  isLoading: boolean, 
+  onNavigate: (s: Section) => void 
+}> = ({ analysis, isLoading, onNavigate }) => (
+  <div className="space-y-6 animate-in slide-in-from-bottom-4">
+    <div className="flex items-center gap-4">
+      <button onClick={() => onNavigate('inventory')} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors text-slate-400"><ChevronLeft size={24}/></button>
+      <div><h2 className="text-3xl font-black">Market Intelligence</h2><p className="text-slate-500 dark:text-slate-400 font-medium">Real-time AI research and sourcing</p></div>
+    </div>
+    
+    {isLoading ? (
+      <div className="bg-white dark:bg-slate-900 p-20 rounded-[3rem] border dark:border-slate-800 flex flex-col items-center justify-center text-center space-y-6">
+        <div className="relative">
+          <Loader2 className="animate-spin text-blue-600" size={60}/>
+          <Sparkles className="absolute -top-2 -right-2 text-amber-500 animate-bounce" size={24}/>
+        </div>
+        <div>
+          <h3 className="text-xl font-black italic">Consulting the Oracle...</h3>
+          <p className="text-slate-400 mt-2 font-medium max-w-xs">Our AI is currently scouring global markets and local maps for you.</p>
+        </div>
+      </div>
+    ) : analysis ? (
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-2 space-y-6">
+          <div className="bg-white dark:bg-slate-900 p-10 rounded-[3rem] border dark:border-slate-800 shadow-sm relative overflow-hidden">
+            <div className="absolute top-0 right-0 p-8 text-blue-100 dark:text-blue-900/20 transform translate-x-4 -translate-y-4"><BrainCircuit size={120}/></div>
+            <div className="relative">
+              <div className="flex items-center gap-2 mb-6"><Sparkles size={18} className="text-blue-600"/><span className="text-[10px] font-black uppercase tracking-widest text-blue-600">AI Summary</span></div>
+              <div className="prose dark:prose-invert max-w-none"><p className="text-lg font-bold leading-relaxed">{analysis.text}</p></div>
+            </div>
+          </div>
+          
+          <div className="bg-slate-900 p-10 rounded-[3rem] text-white space-y-6">
+             <div className="flex items-center gap-2"><Globe className="text-emerald-400" size={18}/><span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Information Sources</span></div>
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+               {analysis.sources?.map((source: any, i: number) => {
+                 const uri = source.web?.uri || source.maps?.uri;
+                 const title = source.web?.title || source.maps?.title || 'Grounding Source';
+                 if (!uri) return null;
+                 return (
+                   <a key={i} href={uri} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 p-4 bg-slate-800 hover:bg-slate-700 transition-all rounded-2xl group">
+                     <div className="w-8 h-8 rounded-lg bg-slate-700 flex items-center justify-center text-slate-400 group-hover:bg-blue-600 group-hover:text-white transition-colors"><Search size={14}/></div>
+                     <span className="text-xs font-bold truncate">{title}</span>
+                     <ChevronRight size={14} className="ml-auto text-slate-600"/>
+                   </a>
+                 );
+               })}
+               {(!analysis.sources || analysis.sources.length === 0) && <p className="text-slate-500 text-xs font-bold uppercase italic p-4">Direct AI synthesis from knowledge base</p>}
+             </div>
+          </div>
+        </div>
+        
+        <div className="space-y-6">
+          <div className="bg-blue-600 p-8 rounded-[3rem] text-white shadow-xl shadow-blue-500/20">
+            <h4 className="text-lg font-black mb-4 flex items-center gap-2"><TrendingUp size={20}/> Insights</h4>
+            <ul className="space-y-4">
+              <li className="flex gap-3 text-sm"><CheckCircle2 className="text-blue-200 shrink-0" size={18}/><span>Real-time price monitoring active</span></li>
+              <li className="flex gap-3 text-sm"><CheckCircle2 className="text-blue-200 shrink-0" size={18}/><span>Competitive analysis generated</span></li>
+              <li className="flex gap-3 text-sm"><CheckCircle2 className="text-blue-200 shrink-0" size={18}/><span>Supplier credibility checked</span></li>
+            </ul>
+          </div>
+          <div className="bg-white dark:bg-slate-900 p-8 rounded-[3rem] border dark:border-slate-800">
+            <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-6">Tools & Actions</h4>
+            <div className="space-y-3">
+              <button className="w-full p-4 bg-slate-100 dark:bg-slate-800 rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-blue-600 hover:text-white transition-all flex items-center justify-between">Download Report <Download size={14}/></button>
+              <button className="w-full p-4 bg-slate-100 dark:bg-slate-800 rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-emerald-600 hover:text-white transition-all flex items-center justify-between">Email Summary <Bell size={14}/></button>
+            </div>
+          </div>
+        </div>
+      </div>
+    ) : (
+      <div className="bg-white dark:bg-slate-900 p-20 rounded-[3rem] border dark:border-slate-800 text-center">
+        <p className="text-slate-400 font-bold uppercase tracking-widest text-sm">Select a product from inventory to begin research</p>
+      </div>
+    )}
+  </div>
+);
+
+// --- Scanner Component ---
+
+const ScannerModal: React.FC<{ 
+  onScan: (res: string) => void, 
+  onClose: () => void, 
+  title: string 
+}> = ({ onScan, onClose, title }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
+
   useEffect(() => {
     const codeReader = new BrowserMultiFormatReader();
     let controls: any;
-    async function startScanner() {
+
+    const startScanner = async () => {
       try {
         const videoInputDevices = await BrowserMultiFormatReader.listVideoInputDevices();
-        const selectedDevice = videoInputDevices.find(d => d.label.toLowerCase().includes('back')) || videoInputDevices[0];
-        controls = await codeReader.decodeFromVideoDevice(selectedDevice.deviceId, videoRef.current!, (result) => { if (result) onScan(result.getText()); });
-      } catch (err) { console.error(err); }
-    }
+        if (videoInputDevices.length === 0) return;
+        
+        // Prefer back camera if available
+        const selectedDeviceId = videoInputDevices.find(d => d.label.toLowerCase().includes('back'))?.deviceId || videoInputDevices[0].deviceId;
+        
+        controls = await codeReader.decodeFromVideoDevice(selectedDeviceId, videoRef.current, (result, error) => {
+          if (result) {
+            onScan(result.getText());
+          }
+        });
+      } catch (err) {
+        console.error("Scanner error:", err);
+      }
+    };
+
     startScanner();
-    return () => { if (controls) controls.stop(); };
+
+    return () => {
+      if (controls) controls.stop();
+    };
   }, [onScan]);
+
   return (
-    <div className="fixed inset-0 bg-slate-900/95 backdrop-blur-md z-[110] flex flex-col items-center justify-center p-4 text-white">
-      <button onClick={onClose} className="absolute top-8 right-8 p-2 hover:bg-white/10 rounded-full transition-all"><X size={32}/></button>
-      <div className="w-full max-w-2xl aspect-video bg-black rounded-3xl border-4 border-white/20 overflow-hidden relative shadow-2xl">
-        <video ref={videoRef} className="w-full h-full object-cover" />
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <div className="w-1/2 h-1/2 border-2 border-blue-500 rounded-2xl animate-pulse" />
+    <div className="fixed inset-0 bg-black/90 backdrop-blur-xl z-[200] flex flex-col items-center justify-center p-6">
+      <div className="w-full max-w-md space-y-6">
+        <div className="flex justify-between items-center text-white">
+          <h3 className="text-xl font-black uppercase tracking-widest">{title}</h3>
+          <button onClick={onClose} className="p-2 bg-white/10 rounded-full hover:bg-white/20 transition-colors"><X/></button>
         </div>
+        <div className="relative aspect-square w-full bg-slate-800 rounded-[3rem] overflow-hidden border-4 border-blue-500 shadow-2xl shadow-blue-500/20">
+          <video ref={videoRef} className="w-full h-full object-cover" />
+          <div className="absolute inset-0 border-[40px] border-black/40 pointer-events-none">
+            <div className="w-full h-full border-2 border-blue-400/50 rounded-2xl relative">
+              <div className="absolute top-1/2 left-0 w-full h-0.5 bg-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.8)] animate-pulse" />
+            </div>
+          </div>
+        </div>
+        <p className="text-center text-slate-400 font-medium">Position the barcode or QR code within the frame</p>
       </div>
-      <div className="mt-8 text-center"><p className="font-black uppercase tracking-widest text-xs">{title}</p></div>
     </div>
   );
 };
@@ -378,7 +530,6 @@ const App: React.FC = () => {
     localStorage.setItem('activity_logs', JSON.stringify(logs));
   }, [inventory, categories, locations, settings, logs]);
 
-  // Toast dismissal effect
   useEffect(() => {
     if (toast) {
       const timer = setTimeout(() => {
@@ -428,6 +579,12 @@ const App: React.FC = () => {
     }
     setIsModalOpen(false);
     setToast({ message: 'Saved successfully', type: 'success' });
+  };
+
+  const generateAutoSku = () => {
+    const random = Math.floor(1000 + Math.random() * 9000);
+    const prefix = modalCategory ? modalCategory.substring(0, 3).toUpperCase() : "SKU";
+    setModalSku(`${prefix}-${random}`);
   };
 
   const handleMagicEntry = async () => {
@@ -580,7 +737,7 @@ const App: React.FC = () => {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
               <input 
                 type="text" 
-                placeholder="Search..." 
+                placeholder="Search SKU or Name..." 
                 className="w-full pl-10 pr-4 py-2 bg-slate-100 dark:bg-slate-800 border-none rounded-full text-sm outline-none font-medium" 
                 value={searchQuery} 
                 onChange={e => setSearchQuery(e.target.value)} 
@@ -634,8 +791,8 @@ const App: React.FC = () => {
                         body: tableData
                       });
                       doc.save("inventory.pdf"); 
-                    }} className="p-4 bg-slate-800 rounded-2xl flex flex-col items-center gap-2 hover:bg-slate-700 transition-colors"><FileText size={20} className="text-red-400"/><span className="text-[10px] font-black uppercase text-center">Export PDF</span></button>
-                    <button onClick={() => { const ws = XLSX.utils.json_to_sheet(inventory); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Inventory"); XLSX.writeFile(wb, "inventory_export.csv"); }} className="p-4 bg-slate-800 rounded-2xl flex flex-col items-center gap-2 hover:bg-slate-700 transition-colors"><FileSpreadsheet size={20} className="text-emerald-400"/><span className="text-[10px] font-black uppercase text-center">Export CSV</span></button>
+                    }} className="p-4 bg-slate-800 rounded-2xl flex flex-col items-center gap-2 hover:bg-slate-700 transition-colors text-center"><FileText size={20} className="text-red-400 text-center"/><span className="text-[10px] font-black uppercase text-center w-full">Export PDF</span></button>
+                    <button onClick={() => { const ws = XLSX.utils.json_to_sheet(inventory); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Inventory"); XLSX.writeFile(wb, "inventory_export.csv"); }} className="p-4 bg-slate-800 rounded-2xl flex flex-col items-center gap-2 hover:bg-slate-700 transition-colors text-center"><FileSpreadsheet size={20} className="text-emerald-400"/><span className="text-[10px] font-black uppercase text-center w-full">Export CSV</span></button>
                     <button onClick={() => {
                       const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(inventory, null, 2));
                       const downloadAnchorNode = document.createElement('a');
@@ -644,21 +801,25 @@ const App: React.FC = () => {
                       document.body.appendChild(downloadAnchorNode);
                       downloadAnchorNode.click();
                       downloadAnchorNode.remove();
-                    }} className="p-4 bg-slate-800 rounded-2xl flex flex-col items-center gap-2 hover:bg-slate-700 transition-colors"><Database size={20} className="text-blue-400"/><span className="text-[10px] font-black uppercase text-center">Export JSON</span></button>
-                    <button onClick={() => setIsClearAllModalOpen(true)} className="p-4 bg-red-950/40 border border-red-900/30 rounded-2xl flex flex-col items-center gap-2 hover:bg-red-900/40 transition-colors"><Trash2 size={20} className="text-red-400"/><span className="text-[10px] font-black uppercase text-red-400 text-center">Clear All</span></button>
+                    }} className="p-4 bg-slate-800 rounded-2xl flex flex-col items-center gap-2 hover:bg-slate-700 transition-colors text-center"><Database size={20} className="text-blue-400"/><span className="text-[10px] font-black uppercase text-center w-full">Export JSON</span></button>
+                    <button onClick={() => setIsClearAllModalOpen(true)} className="p-4 bg-red-950/40 border border-red-900/30 rounded-2xl flex flex-col items-center gap-2 hover:bg-red-900/40 transition-colors text-center"><Trash2 size={20} className="text-red-400"/><span className="text-[10px] font-black uppercase text-red-400 text-center w-full">Clear All</span></button>
                   </div>
                 </div>
               </div>
             </div>}
             {activeSection === 'print' && <div className="space-y-6">
               <h2 className="text-3xl font-black">Print Center</h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 {inventory.map(item => (
-                  <div key={item.id} className="bg-white dark:bg-slate-900 p-6 rounded-3xl border dark:border-slate-800 flex items-center justify-between group">
-                    <div className="truncate pr-4"><p className="font-bold truncate">{item.name}</p><p className="text-[10px] font-black text-slate-400 uppercase">{item.sku}</p></div>
-                    <button onClick={() => window.print()} className="p-3 bg-slate-100 dark:bg-slate-800 rounded-xl hover:bg-blue-600 hover:text-white transition-all"><Printer size={20}/></button>
+                  <div key={item.id} className="bg-white dark:bg-slate-900 p-6 rounded-[2.5rem] border dark:border-slate-800 space-y-4 group">
+                    <div className="flex justify-between items-start">
+                      <div className="truncate pr-4"><p className="font-bold truncate text-lg">{item.name}</p><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{item.sku}</p></div>
+                      <button onClick={() => window.print()} className="p-3 bg-slate-100 dark:bg-slate-800 rounded-2xl hover:bg-blue-600 hover:text-white transition-all"><Printer size={20}/></button>
+                    </div>
+                    <Barcode value={item.sku} className="border dark:border-slate-700" />
                   </div>
                 ))}
+                {inventory.length === 0 && <div className="col-span-full py-20 text-center text-slate-400 font-bold uppercase tracking-widest text-sm">No items to print labels for</div>}
               </div>
             </div>}
           </div>
@@ -667,7 +828,7 @@ const App: React.FC = () => {
 
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-lg p-6 lg:p-8 border dark:border-slate-800 overflow-y-auto max-h-[90vh] relative">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-lg p-6 lg:p-8 border dark:border-slate-800 overflow-y-auto max-h-[90vh] relative custom-scrollbar">
             {isLoading && <div className="absolute inset-0 bg-white/50 dark:bg-slate-900/50 backdrop-blur-[1px] z-10 flex items-center justify-center"><Loader2 className="animate-spin text-blue-600" size={40}/></div>}
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-xl font-bold">{editingProduct ? 'Edit' : 'Add'} Product</h3>
@@ -692,10 +853,21 @@ const App: React.FC = () => {
                       <label className="text-[10px] font-black uppercase text-slate-400">SKU</label>
                       <input required className="w-full px-4 py-2 border rounded-xl dark:bg-slate-800 dark:border-slate-700 outline-none font-bold uppercase" value={modalSku} onChange={e => setModalSku(e.target.value.toUpperCase())} />
                     </div>
-                    <button type="button" onClick={() => { setScannerTarget('sku'); setIsScannerOpen(true); }} className="p-2.5 bg-slate-100 dark:bg-slate-800 rounded-xl hover:bg-blue-600 hover:text-white transition-colors"><Scan size={18}/></button>
+                    <div className="flex gap-1">
+                      <button type="button" onClick={generateAutoSku} className="p-2.5 bg-slate-100 dark:bg-slate-800 rounded-xl hover:bg-amber-600 hover:text-white transition-colors" title="Generate Random SKU"><RefreshCw size={18}/></button>
+                      <button type="button" onClick={() => { setScannerTarget('sku'); setIsScannerOpen(true); }} className="p-2.5 bg-slate-100 dark:bg-slate-800 rounded-xl hover:bg-blue-600 hover:text-white transition-colors"><Scan size={18}/></button>
+                    </div>
                   </div>
                 </div>
               </div>
+              
+              {modalSku && (
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase text-slate-400">Barcode Preview</label>
+                  <Barcode value={modalSku} className="h-20 border dark:border-slate-700" />
+                </div>
+              )}
+
               <div className="space-y-1">
                 <label className="text-[10px] font-black uppercase text-slate-400">Product Name</label>
                 <input required className="w-full px-4 py-2 border rounded-xl dark:bg-slate-800 dark:border-slate-700 outline-none font-bold" value={modalName} onChange={e => setModalName(e.target.value)} />
@@ -742,7 +914,7 @@ const App: React.FC = () => {
       {/* Clear All Confirmation Modal */}
       {isClearAllModalOpen && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-[150] flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl w-full max-w-sm p-8 border dark:border-slate-800 text-center space-y-6">
+          <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl w-full max-sm p-8 border dark:border-slate-800 text-center space-y-6">
             <div className="w-20 h-20 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-3xl flex items-center justify-center mx-auto">
               <AlertOctagon size={40} />
             </div>
