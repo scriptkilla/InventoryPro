@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   LayoutDashboard, 
@@ -165,7 +166,7 @@ const SidebarContent: React.FC<{ activeSection: Section, navigateTo: (s: Section
   <div className="flex flex-col h-full">
     <div className="p-6 border-b border-slate-800 flex items-center gap-3">
       <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center shadow-lg"><Package className="text-white" size={24} /></div>
-      <h1 className="text-xl font-bold tracking-tight text-white truncate">{storeName}</h1>
+      <h1 className="text-xl font-bold tracking-tight text-white truncate">InventoryPro</h1>
     </div>
     <div className="flex-1 p-4 space-y-2 overflow-y-auto custom-scrollbar">
       <NavItem icon={<LayoutDashboard size={20}/>} label="Dashboard" active={activeSection === 'dashboard'} onClick={() => navigateTo('dashboard')} />
@@ -503,11 +504,11 @@ const ScannerModal: React.FC<{
 
     if (capabilities.torch) {
       try {
-        const newState = !isFlashOn;
-        await track.applyConstraints({
-          advanced: [{ torch: newState }]
-        } as any);
-        setIsFlashOn(newState);
+        // Fix: Cast advanced constraints to any because torch is a vendor-specific property 
+        // not yet fully standard in MediaTrackConstraintSet.
+        const advancedConstraints = { torch: !isFlashOn } as any;
+        await track.applyConstraints({ advanced: [advancedConstraints] });
+        setIsFlashOn(!isFlashOn);
       } catch (e) {
         console.error("Flashlight control failed", e);
       }
@@ -823,7 +824,6 @@ const App: React.FC = () => {
           setIsModalOpen(true);
         } else {
           setToast({ message: `Item Detected: ${p.name}`, type: 'info' });
-          // In continuous audit mode, we just highlight it in logs or could auto-increment
           addLog(`Audit Scan: ${p.name} (${p.sku}) identified`, 'ai');
         }
       } else {
