@@ -835,12 +835,15 @@ const App: React.FC = () => {
   const handleExportXLSX = () => {
     if (inventory.length === 0) return setToast({ message: 'Nothing to export', type: 'info' });
     const exportData = inventory.map(item => ({
+      ID: item.id,
       SKU: item.sku,
       Name: item.name,
       Category: item.category,
       Price: item.price,
       'Min Stock': item.minStock,
+      'Last Updated': item.lastUpdated,
       Description: item.description || '',
+      Image: item.image || '',
       'Total Qty': getTotalQty(item.locationStocks),
       ...item.locationStocks
     }));
@@ -854,12 +857,17 @@ const App: React.FC = () => {
   const handleExportCSV = () => {
     if (inventory.length === 0) return setToast({ message: 'Nothing to export', type: 'info' });
     const exportData = inventory.map(item => ({
+      ID: item.id,
       SKU: item.sku,
       Name: item.name,
       Category: item.category,
       Price: item.price,
       'Min Stock': item.minStock,
-      'Total Qty': getTotalQty(item.locationStocks)
+      'Last Updated': item.lastUpdated,
+      Description: item.description || '',
+      'Total Qty': getTotalQty(item.locationStocks),
+      ...item.locationStocks,
+      Image: item.image || ''
     }));
     const ws = XLSX.utils.json_to_sheet(exportData);
     const csv = XLSX.utils.sheet_to_csv(ws);
@@ -876,20 +884,23 @@ const App: React.FC = () => {
 
   const handleExportPDF = () => {
     if (inventory.length === 0) return setToast({ message: 'Nothing to export', type: 'info' });
-    const doc = new jsPDF();
+    const doc = new jsPDF('l', 'mm', 'a4'); // Use landscape for more columns
     doc.setFontSize(18);
-    doc.text(`${settings.storeName} - Inventory Report`, 14, 22);
+    doc.text(`${settings.storeName} - Detailed Inventory Report`, 14, 22);
     doc.setFontSize(11);
     doc.setTextColor(100);
     doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, 30);
     
-    const tableColumn = ["SKU", "Product Name", "Category", "Price", "Total Stock"];
+    const tableColumn = ["SKU", "Name", "Category", "Price", "Min Stock", "Total", "Description", "Location Stocks"];
     const tableRows = inventory.map(item => [
       item.sku,
       item.name,
       item.category,
       `${settings.currency}${item.price.toFixed(2)}`,
-      getTotalQty(item.locationStocks).toString()
+      item.minStock.toString(),
+      getTotalQty(item.locationStocks).toString(),
+      item.description || '-',
+      Object.entries(item.locationStocks).map(([l, q]) => `${l}: ${q}`).join(', ')
     ]);
 
     (doc as any).autoTable({
@@ -897,12 +908,16 @@ const App: React.FC = () => {
       head: [tableColumn],
       body: tableRows,
       theme: 'grid',
-      headStyles: { fillColor: [59, 130, 246], textColor: [255, 255, 255] },
-      alternateRowStyles: { fillColor: [245, 247, 250] },
+      headStyles: { fillColor: [59, 130, 246], textColor: [255, 255, 255], fontSize: 9 },
+      bodyStyles: { fontSize: 8 },
+      columnStyles: {
+        6: { cellWidth: 40 }, // Description
+        7: { cellWidth: 50 }  // Location stocks
+      }
     });
 
     doc.save(`${settings.storeName}_Inventory.pdf`);
-    setToast({ message: 'PDF exported', type: 'success' });
+    setToast({ message: 'Detailed PDF exported', type: 'success' });
   };
 
   const handleExportJSON = () => {
@@ -922,11 +937,20 @@ const App: React.FC = () => {
     let xml = '<?xml version="1.0" encoding="UTF-8"?>\n<inventory>\n';
     inventory.forEach(item => {
       xml += '  <product>\n';
+      xml += `    <id>${item.id}</id>\n`;
       xml += `    <sku>${item.sku}</sku>\n`;
-      xml += `    <name>${item.name}</name>\n`;
-      xml += `    <category>${item.category}</category>\n`;
+      xml += `    <name><![CDATA[${item.name}]]></name>\n`;
+      xml += `    <category><![CDATA[${item.category}]]></category>\n`;
       xml += `    <price>${item.price}</price>\n`;
-      xml += `    <total_qty>${getTotalQty(item.locationStocks)}</total_qty>\n`;
+      xml += `    <min_stock>${item.minStock}</min_stock>\n`;
+      xml += `    <last_updated>${item.lastUpdated}</last_updated>\n`;
+      xml += `    <description><![CDATA[${item.description || ''}]]></description>\n`;
+      xml += '    <location_stocks>\n';
+      Object.entries(item.locationStocks).forEach(([loc, qty]) => {
+        xml += `      <location name="${loc}">${qty}</location>\n`;
+      });
+      xml += '    </location_stocks>\n';
+      xml += `    <image><![CDATA[${item.image || ''}]]></image>\n`;
       xml += '  </product>\n';
     });
     xml += '</inventory>';
@@ -965,7 +989,17 @@ const App: React.FC = () => {
             const item: any = {};
             const children = products[i].children;
             for (let j = 0; j < children.length; j++) {
-              item[children[j].tagName] = children[j].textContent;
+              if (children[j].tagName === 'location_stocks') {
+                const stocks: any = {};
+                const locs = children[j].getElementsByTagName('location');
+                for (let k = 0; k < locs.length; k++) {
+                  const locName = locs[k].getAttribute('name');
+                  if (locName) stocks[locName] = parseInt(locs[k].textContent || '0');
+                }
+                item.location_stocks = stocks;
+              } else {
+                item[children[j].tagName] = children[j].textContent;
+              }
             }
             rawData.push(item);
           }
@@ -979,22 +1013,25 @@ const App: React.FC = () => {
         }
 
         const importedProducts: Product[] = rawData.map((row: any) => {
-          const locStocks: Record<string, number> = {};
-          locations.forEach(loc => {
-            const qty = row[loc] ?? row.locationStocks?.[loc] ?? 0;
-            locStocks[loc] = parseInt(qty) || 0;
-          });
+          const locStocks: Record<string, number> = row.location_stocks || {};
+          if (Object.keys(locStocks).length === 0) {
+            locations.forEach(loc => {
+              const qty = row[loc] ?? row.locationStocks?.[loc] ?? 0;
+              locStocks[loc] = parseInt(qty) || 0;
+            });
+          }
 
           return {
-            id: row.id || Date.now().toString() + Math.random().toString(36).substr(2, 9),
+            id: row.id || row.ID || Date.now().toString() + Math.random().toString(36).substr(2, 9),
             sku: String(row.SKU || row.sku || `IMP-${Math.floor(Math.random() * 10000)}`),
             name: String(row.Name || row.name || 'Imported Item'),
             category: String(row.Category || row.category || 'Uncategorized'),
             price: parseFloat(row.Price || row.price) || 0,
             minStock: parseInt(row['Min Stock'] || row.minStock || row.min_stock) || settings.defaultLowStockThreshold,
             description: String(row.Description || row.description || ''),
+            image: row.Image || row.image || undefined,
             locationStocks: locStocks,
-            lastUpdated: new Date().toISOString()
+            lastUpdated: row.last_updated || row.lastUpdated || new Date().toISOString()
           };
         });
 
@@ -1047,6 +1084,12 @@ const App: React.FC = () => {
             </div>
           </div>
           <div className="flex items-center gap-3">
+            <button className="relative p-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-blue-600 transition-all">
+              <Bell size={20} />
+              {(stats.lowStock > 0 || stats.outOfStock > 0) && (
+                <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-red-500 rounded-full border-2 border-white dark:border-slate-900" />
+              )}
+            </button>
              <button onClick={() => { setScannerTarget('search'); setIsScannerOpen(true); }} className="p-2.5 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-xl hover:bg-blue-600 hover:text-white transition-all shadow-sm">
               <Scan size={20}/>
             </button>
