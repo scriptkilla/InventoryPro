@@ -98,12 +98,13 @@ const Barcode: React.FC<{ value: string; className?: string }> = ({ value, class
           format: "CODE128",
           width: 1.5,
           height: 40,
-          displayValue: false,
+          displayValue: true, // Enabled displayValue to show the SKU number under the barcode
+          fontSize: 14,
+          fontOptions: "bold",
           background: 'transparent',
           lineColor: '#000000',
+          margin: 10
         });
-        // Apply dark mode coloring if needed, but for printing/scanning black on white is best
-        // So we keep the barcode black even in dark mode for high contrast
       } catch (err) {
         console.error("Barcode generation error:", err);
       }
@@ -175,7 +176,7 @@ const DashboardView: React.FC<{ stats: any, inventory: Product[], settings: AppS
         <StatCard label="Total Assets" value={`${settings.currency}${stats.totalValue.toLocaleString()}`} icon={<DollarSign size={24} />} color="bg-blue-600" />
         <StatCard label="Total Items" value={stats.totalItems} icon={<Package size={24} />} color="bg-slate-900" />
         <StatCard label="Low Stock" value={stats.lowStock} icon={<AlertTriangle size={24} />} color="bg-amber-500" warning />
-        <StatCard label="Out of Stock" value={stats.outOfStock} icon={<AlertCircle size={24} />} color="bg-red-500" warning />
+        <StatCard label="Out of Stock" value={stats.out ofStock} icon={<AlertCircle size={24} />} color="bg-red-500" warning />
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 bg-white dark:bg-slate-900 p-8 rounded-[2rem] shadow-sm border dark:border-slate-800">
