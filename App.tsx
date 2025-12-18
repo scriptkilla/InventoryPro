@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   LayoutDashboard, 
@@ -1204,6 +1203,7 @@ const App: React.FC = () => {
                   <label className="text-[10px] font-black uppercase text-slate-400">SKU</label>
                   <div className="flex gap-2">
                     <input required className="flex-1 px-4 py-2 border rounded-xl dark:bg-slate-800 dark:border-slate-700 outline-none font-bold uppercase" value={modalSku} onChange={e => setModalSku(e.target.value.toUpperCase())} />
+                    <button type="button" onClick={() => { setScannerTarget('sku'); setIsScannerOpen(true); }} className="p-2.5 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-xl hover:bg-blue-600 hover:text-white transition-all" title="Scan Barcode"><Scan size={18}/></button>
                     <button type="button" onClick={generateAutoSku} className="p-2.5 bg-slate-100 dark:bg-slate-800 rounded-xl hover:bg-amber-600 hover:text-white transition-colors" title="Generate SKU"><RefreshCw size={18}/></button>
                   </div>
                   {modalSku && (
