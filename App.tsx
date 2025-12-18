@@ -48,7 +48,9 @@ import {
   Sun,
   Camera,
   Wand2,
-  History
+  History,
+  FileUp,
+  AlertOctagon
 } from 'lucide-react';
 import { Product, Category, Section, AppSettings, ActivityLog } from './types';
 import { geminiService } from './services/geminiService';
@@ -343,6 +345,7 @@ const App: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
+  const [isClearAllModalOpen, setIsClearAllModalOpen] = useState(false);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [scannerTarget, setScannerTarget] = useState<'search' | 'sku' | 'audit'>('search');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -353,6 +356,7 @@ const App: React.FC = () => {
   const [toast, setToast] = useState<{ message: string, type: 'success' | 'error' | 'info' } | null>(null);
 
   const importFileRef = useRef<HTMLInputElement>(null);
+  const importCsvFileRef = useRef<HTMLInputElement>(null);
 
   // Modal Form State
   const [modalSku, setModalSku] = useState('');
@@ -373,6 +377,16 @@ const App: React.FC = () => {
     localStorage.setItem('app_settings', JSON.stringify(settings));
     localStorage.setItem('activity_logs', JSON.stringify(logs));
   }, [inventory, categories, locations, settings, logs]);
+
+  // Toast dismissal effect
+  useEffect(() => {
+    if (toast) {
+      const timer = setTimeout(() => {
+        setToast(null);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [toast]);
 
   const stats = useMemo(() => ({
     totalItems: inventory.length,
@@ -417,7 +431,6 @@ const App: React.FC = () => {
   };
 
   const handleMagicEntry = async () => {
-    // Hidden file input to pick photo
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = 'image/*';
@@ -479,11 +492,57 @@ const App: React.FC = () => {
         setModalPrice(p.price);
         setModalQuantity(p.quantity);
         setModalDescription(p.description || '');
+        setModalImage(p.image || null);
         setIsModalOpen(true);
       } else {
         setToast({ message: 'SKU not found in inventory', type: 'error' });
       }
     }
+  };
+
+  const handleImportCSV = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const data = new Uint8Array(event.target?.result as ArrayBuffer);
+        const wb = XLSX.read(data, { type: 'array' });
+        const wsname = wb.SheetNames[0];
+        const ws = wb.Sheets[wsname];
+        const json = XLSX.utils.sheet_to_json(ws);
+        
+        const importedProducts: Product[] = json.map((item: any) => ({
+          id: item.id?.toString() || (Date.now() + Math.random()).toString(),
+          sku: item.SKU?.toString() || item.sku?.toString() || '',
+          name: item.Name?.toString() || item.name?.toString() || 'Imported Product',
+          category: item.Category?.toString() || item.category?.toString() || 'Uncategorized',
+          location: item.Location?.toString() || item.location?.toString() || '',
+          quantity: Number(item.Quantity || item.quantity || 0),
+          price: Number(item.Price || item.price || 0),
+          minStock: Number(item.MinStock || item.minStock || 5),
+          description: item.Description?.toString() || item.description?.toString() || '',
+          lastUpdated: new Date().toISOString()
+        }));
+
+        setInventory(prev => [...prev, ...importedProducts]);
+        addLog(`Imported ${importedProducts.length} products via CSV`, 'add');
+        setToast({ message: `Imported ${importedProducts.length} products`, type: 'success' });
+      } catch (err) {
+        setToast({ message: 'Error parsing CSV', type: 'error' });
+      }
+    };
+    reader.readAsArrayBuffer(file);
+    e.target.value = '';
+  };
+
+  const clearAllData = () => {
+    setInventory([]);
+    setLogs([]);
+    addLog("Database wiped", "delete");
+    setToast({ message: 'Database wiped', type: 'info'});
+    setIsClearAllModalOpen(false);
   };
 
   return (
@@ -500,6 +559,7 @@ const App: React.FC = () => {
         };
         reader.readAsText(file);
       }} />
+      <input type="file" ref={importCsvFileRef} className="hidden" accept=".csv,.xlsx" onChange={handleImportCSV} />
 
       <aside className="hidden lg:flex w-64 bg-slate-900 text-white flex-col shadow-2xl flex-shrink-0">
         <SidebarContent activeSection={activeSection} navigateTo={setActiveSection} storeName={settings.storeName} />
@@ -549,20 +609,43 @@ const App: React.FC = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="bg-white dark:bg-slate-900 p-8 rounded-[2rem] border dark:border-slate-800 space-y-4">
                   <h3 className="text-xs font-black uppercase tracking-widest text-slate-400">System Tools</h3>
-                  <button onClick={() => { setScannerTarget('audit'); setIsScannerOpen(true); }} className="w-full flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl hover:bg-slate-100 transition-colors">
+                  <button onClick={() => { setScannerTarget('audit'); setIsScannerOpen(true); }} className="w-full flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl hover:bg-slate-100 transition-colors text-left">
                     <div className="flex items-center gap-3"><Scan size={20} className="text-emerald-500"/><span className="font-bold">Stock Audit Mode</span></div>
                     <ChevronRight size={16}/>
                   </button>
-                  <button onClick={() => importFileRef.current?.click()} className="w-full flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl hover:bg-slate-100 transition-colors">
+                  <button onClick={() => importFileRef.current?.click()} className="w-full flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl hover:bg-slate-100 transition-colors text-left">
                     <div className="flex items-center gap-3"><Upload size={20} className="text-blue-500"/><span className="font-bold">Import Data (JSON)</span></div>
+                    <ChevronRight size={16}/>
+                  </button>
+                  <button onClick={() => importCsvFileRef.current?.click()} className="w-full flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl hover:bg-slate-100 transition-colors text-left">
+                    <div className="flex items-center gap-3"><FileUp size={20} className="text-emerald-500"/><span className="font-bold">Import CSV / Excel</span></div>
                     <ChevronRight size={16}/>
                   </button>
                 </div>
                 <div className="bg-slate-900 p-8 rounded-[2rem] text-white space-y-4">
                   <h3 className="text-xs font-black uppercase tracking-widest text-slate-500">Export Center</h3>
                   <div className="grid grid-cols-2 gap-3">
-                    <button onClick={() => { const doc = new jsPDF(); doc.text("Inventory", 10, 10); doc.save("inventory.pdf"); }} className="p-4 bg-slate-800 rounded-2xl flex flex-col items-center gap-2 hover:bg-slate-700 transition-colors"><FileText size={20} className="text-red-400"/><span className="text-[10px] font-black uppercase">Export PDF</span></button>
-                    <button onClick={() => { const ws = XLSX.utils.json_to_sheet(inventory); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Sheet1"); XLSX.writeFile(wb, "export.csv"); }} className="p-4 bg-slate-800 rounded-2xl flex flex-col items-center gap-2 hover:bg-slate-700 transition-colors"><FileSpreadsheet size={20} className="text-emerald-400"/><span className="text-[10px] font-black uppercase">Export CSV</span></button>
+                    <button onClick={() => { 
+                      const doc = new jsPDF(); 
+                      doc.text("Inventory", 10, 10); 
+                      const tableData = inventory.map(p => [p.sku, p.name, p.category, p.quantity, p.price]);
+                      (doc as any).autoTable({
+                        head: [['SKU', 'Name', 'Category', 'Qty', 'Price']],
+                        body: tableData
+                      });
+                      doc.save("inventory.pdf"); 
+                    }} className="p-4 bg-slate-800 rounded-2xl flex flex-col items-center gap-2 hover:bg-slate-700 transition-colors"><FileText size={20} className="text-red-400"/><span className="text-[10px] font-black uppercase text-center">Export PDF</span></button>
+                    <button onClick={() => { const ws = XLSX.utils.json_to_sheet(inventory); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Inventory"); XLSX.writeFile(wb, "inventory_export.csv"); }} className="p-4 bg-slate-800 rounded-2xl flex flex-col items-center gap-2 hover:bg-slate-700 transition-colors"><FileSpreadsheet size={20} className="text-emerald-400"/><span className="text-[10px] font-black uppercase text-center">Export CSV</span></button>
+                    <button onClick={() => {
+                      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(inventory, null, 2));
+                      const downloadAnchorNode = document.createElement('a');
+                      downloadAnchorNode.setAttribute("href", dataStr);
+                      downloadAnchorNode.setAttribute("download", "inventory.json");
+                      document.body.appendChild(downloadAnchorNode);
+                      downloadAnchorNode.click();
+                      downloadAnchorNode.remove();
+                    }} className="p-4 bg-slate-800 rounded-2xl flex flex-col items-center gap-2 hover:bg-slate-700 transition-colors"><Database size={20} className="text-blue-400"/><span className="text-[10px] font-black uppercase text-center">Export JSON</span></button>
+                    <button onClick={() => setIsClearAllModalOpen(true)} className="p-4 bg-red-950/40 border border-red-900/30 rounded-2xl flex flex-col items-center gap-2 hover:bg-red-900/40 transition-colors"><Trash2 size={20} className="text-red-400"/><span className="text-[10px] font-black uppercase text-red-400 text-center">Clear All</span></button>
                   </div>
                 </div>
               </div>
@@ -571,7 +654,7 @@ const App: React.FC = () => {
               <h2 className="text-3xl font-black">Print Center</h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 {inventory.map(item => (
-                  <div key={item.id} className="bg-white dark:bg-slate-900 p-6 rounded-3xl border dark:border-slate-800 flex items-center justify-between">
+                  <div key={item.id} className="bg-white dark:bg-slate-900 p-6 rounded-3xl border dark:border-slate-800 flex items-center justify-between group">
                     <div className="truncate pr-4"><p className="font-bold truncate">{item.name}</p><p className="text-[10px] font-black text-slate-400 uppercase">{item.sku}</p></div>
                     <button onClick={() => window.print()} className="p-3 bg-slate-100 dark:bg-slate-800 rounded-xl hover:bg-blue-600 hover:text-white transition-all"><Printer size={20}/></button>
                   </div>
@@ -607,7 +690,7 @@ const App: React.FC = () => {
                    <div className="flex items-end gap-2">
                     <div className="flex-1 space-y-1">
                       <label className="text-[10px] font-black uppercase text-slate-400">SKU</label>
-                      <input required className="w-full px-4 py-2 border rounded-xl dark:bg-slate-800 dark:border-slate-700 outline-none font-bold" value={modalSku} onChange={e => setModalSku(e.target.value.toUpperCase())} />
+                      <input required className="w-full px-4 py-2 border rounded-xl dark:bg-slate-800 dark:border-slate-700 outline-none font-bold uppercase" value={modalSku} onChange={e => setModalSku(e.target.value.toUpperCase())} />
                     </div>
                     <button type="button" onClick={() => { setScannerTarget('sku'); setIsScannerOpen(true); }} className="p-2.5 bg-slate-100 dark:bg-slate-800 rounded-xl hover:bg-blue-600 hover:text-white transition-colors"><Scan size={18}/></button>
                   </div>
@@ -656,6 +739,25 @@ const App: React.FC = () => {
         </div>
       )}
 
+      {/* Clear All Confirmation Modal */}
+      {isClearAllModalOpen && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-[150] flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl w-full max-w-sm p-8 border dark:border-slate-800 text-center space-y-6">
+            <div className="w-20 h-20 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-3xl flex items-center justify-center mx-auto">
+              <AlertOctagon size={40} />
+            </div>
+            <div className="space-y-2">
+              <h3 className="text-2xl font-black">Erase Everything?</h3>
+              <p className="text-slate-500 dark:text-slate-400 font-medium">This action is permanent. All products, categories, and logs will be deleted forever.</p>
+            </div>
+            <div className="flex flex-col gap-3">
+              <button onClick={clearAllData} className="w-full py-4 bg-red-600 text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-red-700 shadow-xl shadow-red-500/20 transition-all">Yes, Delete All Data</button>
+              <button onClick={() => setIsClearAllModalOpen(false)} className="w-full py-4 bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-slate-200 dark:hover:bg-slate-700 transition-all">Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {isCategoryModalOpen && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
           <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-md p-6 lg:p-8 border dark:border-slate-800">
@@ -669,6 +771,7 @@ const App: React.FC = () => {
                const name = formData.get('name') as string;
                const description = formData.get('description') as string;
                setCategories(prev => [...prev, { id: Date.now().toString(), name, description }]);
+               addLog(`Created category: ${name}`, 'add');
                setIsCategoryModalOpen(false);
             }} className="space-y-4">
               <input name="name" required placeholder="Category Name" className="w-full px-4 py-2 border rounded-xl dark:bg-slate-800 dark:border-slate-700 outline-none font-bold" />
@@ -690,7 +793,10 @@ const App: React.FC = () => {
                e.preventDefault();
                const formData = new FormData(e.currentTarget);
                const name = formData.get('name') as string;
-               if (!locations.includes(name)) setLocations(prev => [...prev, name]);
+               if (!locations.includes(name)) {
+                 setLocations(prev => [...prev, name]);
+                 addLog(`Created location zone: ${name}`, 'add');
+               }
                setIsLocationModalOpen(false);
             }} className="space-y-4">
               <input name="name" required placeholder="Zone Name (e.g. Aisle 4)" className="w-full px-4 py-2 border rounded-xl dark:bg-slate-800 dark:border-slate-700 outline-none font-bold" />
