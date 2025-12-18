@@ -811,6 +811,13 @@ const App: React.FC = () => {
                     <input required className="flex-1 px-4 py-2 border rounded-xl dark:bg-slate-800 dark:border-slate-700 outline-none font-bold uppercase" value={modalSku} onChange={e => setModalSku(e.target.value.toUpperCase())} />
                     <button type="button" onClick={generateAutoSku} className="p-2.5 bg-slate-100 dark:bg-slate-800 rounded-xl hover:bg-amber-600 hover:text-white transition-colors" title="Generate SKU"><RefreshCw size={18}/></button>
                   </div>
+                  {/* SKU Barcode Preview with Number */}
+                  {modalSku && (
+                    <div className="mt-2 space-y-1">
+                      <p className="text-[10px] font-black uppercase text-slate-400">Barcode Preview</p>
+                      <Barcode value={modalSku} className="border dark:border-slate-700 h-24" />
+                    </div>
+                  )}
                 </div>
               </div>
 
