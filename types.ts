@@ -1,18 +1,16 @@
-
 export interface Product {
   id: string;
   sku: string;
   name: string;
   category: string;
-  location?: string;
-  quantity: number;
+  location?: string; // Primary location for reference
+  locationStocks: Record<string, number>; // Tracks quantity at each location
   price: number;
   minStock: number;
   lastUpdated: string;
   description?: string;
   image?: string; // Base64 or URL
   tags?: string[];
-  // AI suggested SKU during product analysis
   suggestedSku?: string;
 }
 

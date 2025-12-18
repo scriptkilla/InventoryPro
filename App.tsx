@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   LayoutDashboard, 
@@ -52,7 +51,8 @@ import {
   FileUp,
   AlertOctagon,
   RefreshCw,
-  Globe
+  Globe,
+  ArrowRightLeft
 } from 'lucide-react';
 import { Product, Category, Section, AppSettings, ActivityLog } from './types';
 import { geminiService } from './services/geminiService';
@@ -83,6 +83,12 @@ const DEFAULT_SETTINGS: AppSettings = {
   enableAiFeatures: true,
   enableNotifications: true,
   theme: 'dark'
+};
+
+// --- Helper Functions ---
+
+const getTotalQty = (stocks: Record<string, number> = {}) => {
+  return Object.values(stocks).reduce((sum, q) => sum + (Number(q) || 0), 0);
 };
 
 // --- Helper Components ---
@@ -165,7 +171,7 @@ const DashboardView: React.FC<{ stats: any, inventory: Product[], settings: AppS
   const chartData = useMemo(() => {
     return inventory.slice(0, 8).map(item => ({
       name: item.name.length > 10 ? item.name.substring(0, 10) + '...' : item.name,
-      value: item.quantity
+      value: getTotalQty(item.locationStocks)
     }));
   }, [inventory]);
 
@@ -221,8 +227,9 @@ const InventoryView: React.FC<{
   onEdit: (p: Product) => void, 
   onDelete: (id: string) => void, 
   onResearch: (p: Product, type: 'price' | 'maps') => void,
+  onTransfer: (p: Product) => void,
   settings: AppSettings
-}> = ({ inventory, onAdd, onEdit, onDelete, onResearch, settings }) => (
+}> = ({ inventory, onAdd, onEdit, onDelete, onResearch, onTransfer, settings }) => (
   <div className="space-y-6 animate-in slide-in-from-bottom-4">
     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
       <div><h2 className="text-3xl font-black">Inventory</h2><p className="text-slate-500 dark:text-slate-400 font-medium">Manage and monitor stock levels</p></div>
@@ -232,29 +239,32 @@ const InventoryView: React.FC<{
       <div className="overflow-x-auto">
         <table className="w-full text-left">
           <thead>
-            <tr className="bg-slate-50 dark:bg-slate-800/50 border-b dark:border-slate-800"><th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Product Info</th><th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Category</th><th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Status</th><th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400 text-right">Stock</th><th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400 text-right">Price</th><th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400 text-right">Actions</th></tr>
+            <tr className="bg-slate-50 dark:bg-slate-800/50 border-b dark:border-slate-800"><th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Product Info</th><th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Category</th><th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Status</th><th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400 text-right">Total Stock</th><th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400 text-right">Price</th><th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400 text-right">Actions</th></tr>
           </thead>
           <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-            {inventory.length > 0 ? inventory.map(item => (
-              <tr key={item.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors group">
-                <td className="px-6 py-4">
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-xl bg-slate-100 dark:bg-slate-800 overflow-hidden flex-shrink-0 border dark:border-slate-700 flex items-center justify-center">
-                      {item.image ? <img src={item.image} alt={item.name} className="w-full h-full object-cover" /> : <div className="text-slate-300 dark:text-slate-600"><ImageIcon size={20} /></div>}
+            {inventory.length > 0 ? inventory.map(item => {
+              const totalQty = getTotalQty(item.locationStocks);
+              return (
+                <tr key={item.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors group">
+                  <td className="px-6 py-4">
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 rounded-xl bg-slate-100 dark:bg-slate-800 overflow-hidden flex-shrink-0 border dark:border-slate-700 flex items-center justify-center">
+                        {item.image ? <img src={item.image} alt={item.name} className="w-full h-full object-cover" /> : <div className="text-slate-300 dark:text-slate-600"><ImageIcon size={20} /></div>}
+                      </div>
+                      <div>
+                        <p className="font-bold text-slate-900 dark:text-slate-100 leading-tight truncate max-w-[150px]">{item.name}</p>
+                        <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-tighter mt-1">{item.sku}</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="font-bold text-slate-900 dark:text-slate-100 leading-tight truncate max-w-[150px]">{item.name}</p>
-                      <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-tighter mt-1">{item.sku}</p>
-                    </div>
-                  </div>
-                </td>
-                <td className="px-6 py-4"><span className="px-3 py-1 bg-slate-100 dark:bg-slate-800 rounded-full text-[10px] font-black text-slate-600 dark:text-slate-400 uppercase">{item.category}</span></td>
-                <td className="px-6 py-4">{item.quantity <= 0 ? <span className="flex items-center gap-1.5 text-red-500 text-[10px] font-black uppercase"><AlertCircle size={12}/>Out of Stock</span> : item.quantity <= item.minStock ? <span className="flex items-center gap-1.5 text-amber-500 text-[10px] font-black uppercase"><AlertTriangle size={12}/>Low Stock</span> : <span className="flex items-center gap-1.5 text-emerald-500 text-[10px] font-black uppercase"><CheckCircle2 size={12}/>Optimal</span>}</td>
-                <td className="px-6 py-4 text-right font-black text-slate-900 dark:text-slate-100">{item.quantity}</td>
-                <td className="px-6 py-4 text-right font-black text-slate-900 dark:text-slate-100">{settings.currency}{item.price.toFixed(2)}</td>
-                <td className="px-6 py-4"><div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity"><button onClick={() => onResearch(item, 'price')} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-all" title="Market Price Analysis"><TrendingUp size={18}/></button><button onClick={() => onResearch(item, 'maps')} className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 rounded-lg transition-all" title="Find Suppliers"><MapPin size={18}/></button><button onClick={() => onEdit(item)} className="p-2 text-slate-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/30 rounded-lg transition-all" title="Edit"><Edit3 size={18}/></button><button onClick={() => onDelete(item.id)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-all" title="Delete"><Trash2 size={18}/></button></div></td>
-              </tr>
-            )) : <tr><td colSpan={6} className="px-6 py-20 text-center text-slate-400 font-bold uppercase tracking-widest text-xs">No products found</td></tr>}
+                  </td>
+                  <td className="px-6 py-4"><span className="px-3 py-1 bg-slate-100 dark:bg-slate-800 rounded-full text-[10px] font-black text-slate-600 dark:text-slate-400 uppercase">{item.category}</span></td>
+                  <td className="px-6 py-4">{totalQty <= 0 ? <span className="flex items-center gap-1.5 text-red-500 text-[10px] font-black uppercase"><AlertCircle size={12}/>Out of Stock</span> : totalQty <= item.minStock ? <span className="flex items-center gap-1.5 text-amber-500 text-[10px] font-black uppercase"><AlertTriangle size={12}/>Low Stock</span> : <span className="flex items-center gap-1.5 text-emerald-500 text-[10px] font-black uppercase"><CheckCircle2 size={12}/>Optimal</span>}</td>
+                  <td className="px-6 py-4 text-right font-black text-slate-900 dark:text-slate-100">{totalQty}</td>
+                  <td className="px-6 py-4 text-right font-black text-slate-900 dark:text-slate-100">{settings.currency}{item.price.toFixed(2)}</td>
+                  <td className="px-6 py-4"><div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity"><button onClick={() => onTransfer(item)} className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 rounded-lg transition-all" title="Transfer Stock"><ArrowRightLeft size={18}/></button><button onClick={() => onResearch(item, 'price')} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-all" title="Market Price Analysis"><TrendingUp size={18}/></button><button onClick={() => onResearch(item, 'maps')} className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 rounded-lg transition-all" title="Find Suppliers"><MapPin size={18}/></button><button onClick={() => onEdit(item)} className="p-2 text-slate-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/30 rounded-lg transition-all" title="Edit"><Edit3 size={18}/></button><button onClick={() => onDelete(item.id)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-all" title="Delete"><Trash2 size={18}/></button></div></td>
+                </tr>
+              );
+            }) : <tr><td colSpan={6} className="px-6 py-20 text-center text-slate-400 font-bold uppercase tracking-widest text-xs">No products found</td></tr>}
           </tbody>
         </table>
       </div>
@@ -314,8 +324,8 @@ const LocationsView: React.FC<{
     </div>
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
       {locations.map(loc => {
-        const itemCount = inventory.filter(p => p.location === loc).length;
-        const totalStock = inventory.filter(p => p.location === loc).reduce((sum, p) => sum + p.quantity, 0);
+        const itemCount = inventory.filter(p => p.locationStocks && (Number(p.locationStocks[loc]) || 0) > 0).length;
+        const totalStock = inventory.reduce((sum, p) => sum + (Number(p.locationStocks?.[loc]) || 0), 0);
         return (
           <div key={loc} className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] border dark:border-slate-800 space-y-6 group hover:shadow-2xl transition-all">
             <div className="flex justify-between items-start">
@@ -325,7 +335,7 @@ const LocationsView: React.FC<{
             <h3 className="text-xl font-black">{loc}</h3>
             <div className="grid grid-cols-2 gap-4">
               <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-2xl">
-                <p className="text-[10px] font-black text-slate-400 uppercase mb-1">SKUs</p>
+                <p className="text-[10px] font-black text-slate-400 uppercase mb-1">SKUs Here</p>
                 <p className="text-lg font-black">{itemCount}</p>
               </div>
               <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-2xl">
@@ -355,7 +365,9 @@ const AiResearchView: React.FC<{
       <div className="bg-white dark:bg-slate-900 p-20 rounded-[3rem] border dark:border-slate-800 flex flex-col items-center justify-center text-center space-y-6">
         <div className="relative">
           <Loader2 className="animate-spin text-blue-600" size={60}/>
-          <Sparkles className="absolute -top-2 -right-2 text-amber-500 animate-bounce" size={24}/>
+          <span className="absolute -top-2 -right-2 text-amber-500 animate-bounce">
+            <Sparkles size={24}/>
+          </span>
         </div>
         <div>
           <h3 className="text-xl font-black italic">Consulting the Oracle...</h3>
@@ -401,13 +413,6 @@ const AiResearchView: React.FC<{
               <li className="flex gap-3 text-sm"><CheckCircle2 className="text-blue-200 shrink-0" size={18}/><span>Competitive analysis generated</span></li>
               <li className="flex gap-3 text-sm"><CheckCircle2 className="text-blue-200 shrink-0" size={18}/><span>Supplier credibility checked</span></li>
             </ul>
-          </div>
-          <div className="bg-white dark:bg-slate-900 p-8 rounded-[3rem] border dark:border-slate-800">
-            <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-6">Tools & Actions</h4>
-            <div className="space-y-3">
-              <button className="w-full p-4 bg-slate-100 dark:bg-slate-800 rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-blue-600 hover:text-white transition-all flex items-center justify-between">Download Report <Download size={14}/></button>
-              <button className="w-full p-4 bg-slate-100 dark:bg-slate-800 rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-emerald-600 hover:text-white transition-all flex items-center justify-between">Email Summary <Bell size={14}/></button>
-            </div>
           </div>
         </div>
       </div>
@@ -479,7 +484,19 @@ const ScannerModal: React.FC<{
 
 const App: React.FC = () => {
   const [activeSection, setActiveSection] = useState<Section>('dashboard');
-  const [inventory, setInventory] = useState<Product[]>(() => JSON.parse(localStorage.getItem('inventory') || '[]'));
+  const [inventory, setInventory] = useState<Product[]>(() => {
+    const data = JSON.parse(localStorage.getItem('inventory') || '[]');
+    // Migrate data if locationStocks doesn't exist
+    return data.map((p: any) => {
+      if (p.quantity !== undefined && !p.locationStocks) {
+        return {
+          ...p,
+          locationStocks: { [p.location || 'Default']: p.quantity }
+        };
+      }
+      return p;
+    });
+  });
   const [categories, setCategories] = useState<Category[]>(() => JSON.parse(localStorage.getItem('categories') || JSON.stringify(INITIAL_CATEGORIES)));
   const [locations, setLocations] = useState<string[]>(() => JSON.parse(localStorage.getItem('locations') || JSON.stringify(INITIAL_LOCATIONS)));
   const [settings, setSettings] = useState<AppSettings>(() => {
@@ -490,6 +507,7 @@ const App: React.FC = () => {
 
   const [searchQuery, setSearchQuery] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
   const [isClearAllModalOpen, setIsClearAllModalOpen] = useState(false);
@@ -497,24 +515,26 @@ const App: React.FC = () => {
   const [scannerTarget, setScannerTarget] = useState<'search' | 'sku' | 'audit'>('search');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [transferProduct, setTransferProduct] = useState<Product | null>(null);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [aiAnalysis, setAiAnalysis] = useState<any>(null);
   const [toast, setToast] = useState<{ message: string, type: 'success' | 'error' | 'info' } | null>(null);
 
-  const importFileRef = useRef<HTMLInputElement>(null);
-  const importCsvFileRef = useRef<HTMLInputElement>(null);
-
   // Modal Form State
   const [modalSku, setModalSku] = useState('');
   const [modalName, setModalName] = useState('');
   const [modalCategory, setModalCategory] = useState('');
-  const [modalLocation, setModalLocation] = useState('');
   const [modalPrice, setModalPrice] = useState(0);
-  const [modalQuantity, setModalQuantity] = useState(0);
+  const [modalLocationStocks, setModalLocationStocks] = useState<Record<string, number>>({});
   const [modalDescription, setModalDescription] = useState('');
   const [modalMinStock, setModalMinStock] = useState(5);
   const [modalImage, setModalImage] = useState<string | null>(null);
+
+  // Transfer Modal State
+  const [transferFrom, setTransferFrom] = useState('');
+  const [transferTo, setTransferTo] = useState('');
+  const [transferAmount, setTransferAmount] = useState(1);
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', settings.theme === 'dark');
@@ -534,12 +554,16 @@ const App: React.FC = () => {
     }
   }, [toast]);
 
-  const stats = useMemo(() => ({
-    totalItems: inventory.length,
-    totalValue: inventory.reduce((sum, item) => sum + (item.price * item.quantity), 0),
-    lowStock: inventory.filter(i => i.quantity > 0 && i.quantity <= i.minStock).length,
-    outOfStock: inventory.filter(i => i.quantity === 0).length
-  }), [inventory]);
+  const stats = useMemo(() => {
+    const totalItems = inventory.length;
+    const totalValue = inventory.reduce((sum, item) => sum + (item.price * getTotalQty(item.locationStocks)), 0);
+    const lowStock = inventory.filter(i => {
+      const q = getTotalQty(i.locationStocks);
+      return q > 0 && q <= i.minStock;
+    }).length;
+    const outOfStock = inventory.filter(i => getTotalQty(i.locationStocks) === 0).length;
+    return { totalItems, totalValue, lowStock, outOfStock };
+  }, [inventory]);
 
   const filteredInventory = useMemo(() => {
     const q = searchQuery.toLowerCase();
@@ -557,9 +581,8 @@ const App: React.FC = () => {
       sku: modalSku,
       name: modalName,
       category: modalCategory || categories[0]?.name || '',
-      location: modalLocation,
+      locationStocks: modalLocationStocks,
       price: modalPrice,
-      quantity: modalQuantity,
       minStock: modalMinStock,
       description: modalDescription,
       image: modalImage || undefined,
@@ -574,6 +597,31 @@ const App: React.FC = () => {
     }
     setIsModalOpen(false);
     setToast({ message: 'Saved successfully', type: 'success' });
+  };
+
+  const handleTransfer = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!transferProduct || !transferFrom || !transferTo || transferAmount <= 0) return;
+    
+    const sourceQty = Number(transferProduct.locationStocks[transferFrom]) || 0;
+    if (sourceQty < transferAmount) {
+      setToast({ message: 'Insufficient stock in source location', type: 'error' });
+      return;
+    }
+
+    setInventory(prev => prev.map(p => {
+      if (p.id === transferProduct.id) {
+        const newStocks = { ...p.locationStocks };
+        newStocks[transferFrom] = (Number(newStocks[transferFrom]) || 0) - transferAmount;
+        newStocks[transferTo] = (Number(newStocks[transferTo]) || 0) + transferAmount;
+        return { ...p, locationStocks: newStocks };
+      }
+      return p;
+    }));
+
+    addLog(`Transferred ${transferAmount} of ${transferProduct.name} from ${transferFrom} to ${transferTo}`, 'update');
+    setIsTransferModalOpen(false);
+    setToast({ message: 'Transfer complete', type: 'success' });
   };
 
   const generateAutoSku = () => {
@@ -642,7 +690,7 @@ const App: React.FC = () => {
         setModalName(p.name);
         setModalCategory(p.category);
         setModalPrice(p.price);
-        setModalQuantity(p.quantity);
+        setModalLocationStocks(p.locationStocks || {});
         setModalDescription(p.description || '');
         setModalImage(p.image || null);
         setIsModalOpen(true);
@@ -650,43 +698,6 @@ const App: React.FC = () => {
         setToast({ message: 'SKU not found in inventory', type: 'error' });
       }
     }
-  };
-
-  const handleImportCSV = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      try {
-        const data = new Uint8Array(event.target?.result as ArrayBuffer);
-        const wb = XLSX.read(data, { type: 'array' });
-        const wsname = wb.SheetNames[0];
-        const ws = wb.Sheets[wsname];
-        const json = XLSX.utils.sheet_to_json(ws);
-        
-        const importedProducts: Product[] = json.map((item: any) => ({
-          id: item.id?.toString() || (Date.now() + Math.random()).toString(),
-          sku: item.SKU?.toString() || item.sku?.toString() || '',
-          name: item.Name?.toString() || item.name?.toString() || 'Imported Product',
-          category: item.Category?.toString() || item.category?.toString() || 'Uncategorized',
-          location: item.Location?.toString() || item.location?.toString() || '',
-          quantity: Number(item.Quantity || item.quantity || 0),
-          price: Number(item.Price || item.price || 0),
-          minStock: Number(item.MinStock || item.minStock || 5),
-          description: item.Description?.toString() || item.description?.toString() || '',
-          lastUpdated: new Date().toISOString()
-        }));
-
-        setInventory(prev => [...prev, ...importedProducts]);
-        addLog(`Imported ${importedProducts.length} products via CSV`, 'add');
-        setToast({ message: `Imported ${importedProducts.length} products`, type: 'success' });
-      } catch (err) {
-        setToast({ message: 'Error parsing CSV', type: 'error' });
-      }
-    };
-    reader.readAsArrayBuffer(file);
-    e.target.value = '';
   };
 
   const clearAllData = () => {
@@ -699,20 +710,6 @@ const App: React.FC = () => {
 
   return (
     <div className="flex h-screen bg-slate-50 dark:bg-slate-950 overflow-hidden text-slate-900 dark:text-slate-100 transition-colors duration-300">
-      <input type="file" ref={importFileRef} className="hidden" accept=".json" onChange={(e) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = (event) => {
-          try {
-            const json = JSON.parse(event.target?.result as string);
-            if (Array.isArray(json)) { setInventory(json); setToast({ message: 'Imported successfully', type: 'success' }); }
-          } catch { setToast({ message: 'Invalid file', type: 'error' }); }
-        };
-        reader.readAsText(file);
-      }} />
-      <input type="file" ref={importCsvFileRef} className="hidden" accept=".csv,.xlsx" onChange={handleImportCSV} />
-
       <aside className="hidden lg:flex w-64 bg-slate-900 text-white flex-col shadow-2xl flex-shrink-0">
         <SidebarContent activeSection={activeSection} navigateTo={setActiveSection} storeName={settings.storeName} />
       </aside>
@@ -752,7 +749,7 @@ const App: React.FC = () => {
         <main className="flex-1 overflow-y-auto p-4 lg:p-8 custom-scrollbar">
           <div className="max-w-7xl mx-auto">
             {activeSection === 'dashboard' && <DashboardView stats={stats} inventory={inventory} settings={settings} logs={logs} />}
-            {activeSection === 'inventory' && <InventoryView inventory={filteredInventory} settings={settings} onAdd={() => {setEditingProduct(null); setModalSku(''); setModalName(''); setModalImage(null); setModalDescription(''); setIsModalOpen(true);}} onEdit={p => {setEditingProduct(p); setModalSku(p.sku); setModalName(p.name); setModalCategory(p.category); setModalPrice(p.price); setModalQuantity(p.quantity); setModalDescription(p.description || ''); setModalImage(p.image || null); setIsModalOpen(true);}} onDelete={id => setInventory(prev => prev.filter(i => i.id !== id))} onResearch={async (p, t) => { setIsLoading(true); setActiveSection('ai-research'); try { setAiAnalysis(t === 'price' ? await geminiService.getMarketPrice(p.name) : await geminiService.findSuppliers(p.name, { lat: 37, lng: -122 })); } finally { setIsLoading(false); } }} />}
+            {activeSection === 'inventory' && <InventoryView inventory={filteredInventory} settings={settings} onAdd={() => {setEditingProduct(null); setModalSku(''); setModalName(''); setModalImage(null); setModalDescription(''); setModalLocationStocks({}); setIsModalOpen(true);}} onEdit={p => {setEditingProduct(p); setModalSku(p.sku); setModalName(p.name); setModalCategory(p.category); setModalPrice(p.price); setModalLocationStocks(p.locationStocks || {}); setModalDescription(p.description || ''); setModalImage(p.image || null); setIsModalOpen(true);}} onDelete={id => setInventory(prev => prev.filter(i => i.id !== id))} onResearch={async (p, t) => { setIsLoading(true); setActiveSection('ai-research'); try { setAiAnalysis(t === 'price' ? await geminiService.getMarketPrice(p.name) : await geminiService.findSuppliers(p.name, { lat: 37, lng: -122 })); } finally { setIsLoading(false); } }} onTransfer={(p) => { setTransferProduct(p); const hasStock = Object.entries(p.locationStocks).filter(([_, q]) => (Number(q) || 0) > 0); setTransferFrom(hasStock[0]?.[0] || locations[0]); setTransferTo(locations.find(l => l !== (hasStock[0]?.[0] || locations[0])) || ''); setTransferAmount(1); setIsTransferModalOpen(true); }} />}
             {activeSection === 'ai-research' && <AiResearchView analysis={aiAnalysis} isLoading={isLoading} onNavigate={setActiveSection} />}
             {activeSection === 'categories' && <CategoriesView categories={categories} inventory={inventory} onAdd={() => setIsCategoryModalOpen(true)} onEdit={c => {setEditingCategory(c); setIsCategoryModalOpen(true);}} onDelete={id => setCategories(prev => prev.filter(c => c.id !== id))} />}
             {activeSection === 'locations' && <LocationsView locations={locations} inventory={inventory} onAdd={() => setIsLocationModalOpen(true)} onDelete={l => setLocations(prev => prev.filter(loc => loc !== l))} />}
@@ -765,40 +762,7 @@ const App: React.FC = () => {
                     <div className="flex items-center gap-3"><Scan size={20} className="text-emerald-500"/><span className="font-bold">Stock Audit Mode</span></div>
                     <ChevronRight size={16}/>
                   </button>
-                  <button onClick={() => importFileRef.current?.click()} className="w-full flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl hover:bg-slate-100 transition-colors text-left">
-                    <div className="flex items-center gap-3"><Upload size={20} className="text-blue-500"/><span className="font-bold">Import Data (JSON)</span></div>
-                    <ChevronRight size={16}/>
-                  </button>
-                  <button onClick={() => importCsvFileRef.current?.click()} className="w-full flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl hover:bg-slate-100 transition-colors text-left">
-                    <div className="flex items-center gap-3"><FileUp size={20} className="text-emerald-500"/><span className="font-bold">Import CSV / Excel</span></div>
-                    <ChevronRight size={16}/>
-                  </button>
-                </div>
-                <div className="bg-slate-900 p-8 rounded-[2rem] text-white space-y-4">
-                  <h3 className="text-xs font-black uppercase tracking-widest text-slate-500">Export Center</h3>
-                  <div className="grid grid-cols-2 gap-3">
-                    <button onClick={() => { 
-                      const doc = new jsPDF(); 
-                      doc.text("Inventory", 10, 10); 
-                      const tableData = inventory.map(p => [p.sku, p.name, p.category, p.quantity, p.price]);
-                      (doc as any).autoTable({
-                        head: [['SKU', 'Name', 'Category', 'Qty', 'Price']],
-                        body: tableData
-                      });
-                      doc.save("inventory.pdf"); 
-                    }} className="p-4 bg-slate-800 rounded-2xl flex flex-col items-center gap-2 hover:bg-slate-700 transition-colors text-center"><FileText size={20} className="text-red-400 text-center"/><span className="text-[10px] font-black uppercase text-center w-full">Export PDF</span></button>
-                    <button onClick={() => { const ws = XLSX.utils.json_to_sheet(inventory); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Inventory"); XLSX.writeFile(wb, "inventory_export.csv"); }} className="p-4 bg-slate-800 rounded-2xl flex flex-col items-center gap-2 hover:bg-slate-700 transition-colors text-center"><FileSpreadsheet size={20} className="text-emerald-400"/><span className="text-[10px] font-black uppercase text-center w-full">Export CSV</span></button>
-                    <button onClick={() => {
-                      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(inventory, null, 2));
-                      const downloadAnchorNode = document.createElement('a');
-                      downloadAnchorNode.setAttribute("href", dataStr);
-                      downloadAnchorNode.setAttribute("download", "inventory.json");
-                      document.body.appendChild(downloadAnchorNode);
-                      downloadAnchorNode.click();
-                      downloadAnchorNode.remove();
-                    }} className="p-4 bg-slate-800 rounded-2xl flex flex-col items-center gap-2 hover:bg-slate-700 transition-colors text-center"><Database size={20} className="text-blue-400"/><span className="text-[10px] font-black uppercase text-center w-full">Export JSON</span></button>
-                    <button onClick={() => setIsClearAllModalOpen(true)} className="p-4 bg-red-950/40 border border-red-900/30 rounded-2xl flex flex-col items-center gap-2 hover:bg-red-900/40 transition-colors text-center"><Trash2 size={20} className="text-red-400"/><span className="text-[10px] font-black uppercase text-red-400 text-center w-full">Clear All</span></button>
-                  </div>
+                  <button onClick={() => setIsClearAllModalOpen(true)} className="w-full p-4 bg-red-950/40 border border-red-900/30 rounded-2xl flex items-center gap-2 hover:bg-red-900/40 transition-colors text-center font-bold text-red-500">Wipe All Data</button>
                 </div>
               </div>
             </div>}
@@ -814,7 +778,6 @@ const App: React.FC = () => {
                     <Barcode value={item.sku} className="border dark:border-slate-700" />
                   </div>
                 ))}
-                {inventory.length === 0 && <div className="col-span-full py-20 text-center text-slate-400 font-bold uppercase tracking-widest text-sm">No items to print labels for</div>}
               </div>
             </div>}
           </div>
@@ -829,7 +792,7 @@ const App: React.FC = () => {
               <h3 className="text-xl font-bold">{editingProduct ? 'Edit' : 'Add'} Product</h3>
               <div className="flex items-center gap-2">
                 {!editingProduct && (
-                   <button onClick={handleMagicEntry} className="p-2 text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/30 rounded-xl flex items-center gap-1.5 transition-colors" title="Analyze with AI">
+                   <button type="button" onClick={handleMagicEntry} className="p-2 text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/30 rounded-xl flex items-center gap-1.5 transition-colors" title="Analyze with AI">
                     <Sparkles size={18}/>
                     <span className="text-xs font-black uppercase hidden sm:inline">Magic Entry</span>
                   </button>
@@ -842,31 +805,20 @@ const App: React.FC = () => {
                 <div className="w-24 h-24 bg-slate-100 dark:bg-slate-800 rounded-2xl overflow-hidden flex-shrink-0 flex items-center justify-center border dark:border-slate-700">
                   {modalImage ? <img src={modalImage} className="w-full h-full object-cover" /> : <ImageIcon size={24} className="text-slate-300"/>}
                 </div>
-                <div className="flex-1 space-y-2">
-                   <div className="flex items-end gap-2">
-                    <div className="flex-1 space-y-1">
-                      <label className="text-[10px] font-black uppercase text-slate-400">SKU</label>
-                      <input required className="w-full px-4 py-2 border rounded-xl dark:bg-slate-800 dark:border-slate-700 outline-none font-bold uppercase" value={modalSku} onChange={e => setModalSku(e.target.value.toUpperCase())} />
-                    </div>
-                    <div className="flex gap-1">
-                      <button type="button" onClick={generateAutoSku} className="p-2.5 bg-slate-100 dark:bg-slate-800 rounded-xl hover:bg-amber-600 hover:text-white transition-colors" title="Generate Random SKU"><RefreshCw size={18}/></button>
-                      <button type="button" onClick={() => { setScannerTarget('sku'); setIsScannerOpen(true); }} className="p-2.5 bg-slate-100 dark:bg-slate-800 rounded-xl hover:bg-blue-600 hover:text-white transition-colors"><Scan size={18}/></button>
-                    </div>
+                <div className="flex-1 space-y-1">
+                  <label className="text-[10px] font-black uppercase text-slate-400">SKU</label>
+                  <div className="flex gap-2">
+                    <input required className="flex-1 px-4 py-2 border rounded-xl dark:bg-slate-800 dark:border-slate-700 outline-none font-bold uppercase" value={modalSku} onChange={e => setModalSku(e.target.value.toUpperCase())} />
+                    <button type="button" onClick={generateAutoSku} className="p-2.5 bg-slate-100 dark:bg-slate-800 rounded-xl hover:bg-amber-600 hover:text-white transition-colors" title="Generate SKU"><RefreshCw size={18}/></button>
                   </div>
                 </div>
               </div>
-              
-              {modalSku && (
-                <div className="space-y-1">
-                  <label className="text-[10px] font-black uppercase text-slate-400">Barcode Preview</label>
-                  <Barcode value={modalSku} className="h-20 border dark:border-slate-700" />
-                </div>
-              )}
 
               <div className="space-y-1">
                 <label className="text-[10px] font-black uppercase text-slate-400">Product Name</label>
                 <input required className="w-full px-4 py-2 border rounded-xl dark:bg-slate-800 dark:border-slate-700 outline-none font-bold" value={modalName} onChange={e => setModalName(e.target.value)} />
               </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
                   <label className="text-[10px] font-black uppercase text-slate-400">Category</label>
@@ -876,37 +828,82 @@ const App: React.FC = () => {
                   </select>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black uppercase text-slate-400">Location</label>
-                   <select className="w-full px-4 py-2 border rounded-xl dark:bg-slate-800 dark:border-slate-700 outline-none font-bold" value={modalLocation} onChange={e => setModalLocation(e.target.value)}>
-                    <option value="">Select Location</option>
-                    {locations.map(l => <option key={l} value={l}>{l}</option>)}
-                  </select>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1">
                   <label className="text-[10px] font-black uppercase text-slate-400">Price ({settings.currency})</label>
                   <input type="number" step="0.01" className="w-full px-4 py-2 border rounded-xl dark:bg-slate-800 dark:border-slate-700 outline-none font-bold" value={modalPrice} onChange={e => setModalPrice(parseFloat(e.target.value) || 0)} />
                 </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-black uppercase text-slate-400">Stock Quantity</label>
-                  <input type="number" className="w-full px-4 py-2 border rounded-xl dark:bg-slate-800 dark:border-slate-700 outline-none font-bold" value={modalQuantity} onChange={e => setModalQuantity(parseInt(e.target.value) || 0)} />
+              </div>
+
+              <div className="bg-slate-50 dark:bg-slate-800/50 p-6 rounded-2xl space-y-4">
+                <label className="text-[10px] font-black uppercase text-slate-400 block">Stock by Location</label>
+                <div className="space-y-3">
+                  {locations.map(loc => (
+                    <div key={loc} className="flex items-center justify-between">
+                      <span className="text-sm font-bold">{loc}</span>
+                      <input 
+                        type="number" 
+                        className="w-24 px-3 py-1.5 border rounded-lg dark:bg-slate-900 dark:border-slate-700 outline-none text-right font-black" 
+                        value={modalLocationStocks[loc] || 0}
+                        onChange={e => setModalLocationStocks(prev => ({ ...prev, [loc]: parseInt(e.target.value) || 0 }))}
+                      />
+                    </div>
+                  ))}
                 </div>
               </div>
+
               <div className="space-y-1">
-                <div className="flex justify-between items-center">
+                <div className="flex justify-between items-center mb-1">
                   <label className="text-[10px] font-black uppercase text-slate-400">Description</label>
-                  <button type="button" onClick={generateAIDescription} className="text-[10px] font-black uppercase text-blue-600 hover:text-blue-700 flex items-center gap-1"><Wand2 size={12}/>AI Generate</button>
+                  <button type="button" onClick={generateAIDescription} className="text-[10px] font-black uppercase text-blue-600 hover:text-blue-700 flex items-center gap-1">
+                    <Wand2 size={12}/> AI Generate
+                  </button>
                 </div>
                 <textarea className="w-full px-4 py-2 border rounded-xl dark:bg-slate-800 dark:border-slate-700 outline-none min-h-[80px]" value={modalDescription} onChange={e => setModalDescription(e.target.value)} />
               </div>
+
               <button className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-blue-700 shadow-xl shadow-blue-500/20 transition-all">Save Changes</button>
             </form>
           </div>
         </div>
       )}
 
-      {/* Clear All Confirmation Modal */}
+      {isTransferModalOpen && transferProduct && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[110] flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl w-full max-w-sm p-8 border dark:border-slate-800 space-y-6">
+            <div className="flex justify-between items-center">
+              <h3 className="text-xl font-black">Transfer Stock</h3>
+              <button onClick={() => setIsTransferModalOpen(false)}><X/></button>
+            </div>
+            <div className="text-center">
+              <p className="font-bold text-lg">{transferProduct.name}</p>
+              <p className="text-xs text-slate-500">Current Total: {getTotalQty(transferProduct.locationStocks)}</p>
+            </div>
+            <form onSubmit={handleTransfer} className="space-y-4">
+              <div className="space-y-1">
+                <label className="text-[10px] font-black uppercase text-slate-400">From</label>
+                <select className="w-full px-4 py-2 border rounded-xl dark:bg-slate-800 dark:border-slate-700 font-bold" value={transferFrom} onChange={e => setTransferFrom(e.target.value)}>
+                  {Object.entries(transferProduct.locationStocks).filter(([_, q]) => (Number(q) || 0) > 0).map(([l, q]) => (
+                    <option key={l} value={l}>{l} ({q} available)</option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-black uppercase text-slate-400">To</label>
+                <select className="w-full px-4 py-2 border rounded-xl dark:bg-slate-800 dark:border-slate-700 font-bold" value={transferTo} onChange={e => setTransferTo(e.target.value)}>
+                  {locations.filter(l => l !== transferFrom).map(l => (
+                    <option key={l} value={l}>{l}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-black uppercase text-slate-400">Amount</label>
+                <input required type="number" min="1" max={Number(transferProduct.locationStocks[transferFrom]) || 0} className="w-full px-4 py-2 border rounded-xl dark:bg-slate-800 dark:border-slate-700 font-bold" value={transferAmount} onChange={e => setTransferAmount(parseInt(e.target.value) || 0)} />
+              </div>
+              <button className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-blue-700 transition-all">Move Stock</button>
+            </form>
+          </div>
+        </div>
+      )}
+
       {isClearAllModalOpen && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-[150] flex items-center justify-center p-4">
           <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl w-full max-w-sm p-8 border dark:border-slate-800 text-center space-y-6">
@@ -915,11 +912,11 @@ const App: React.FC = () => {
             </div>
             <div className="space-y-2">
               <h3 className="text-2xl font-black">Erase Everything?</h3>
-              <p className="text-slate-500 dark:text-slate-400 font-medium">This action is permanent. All products, categories, and logs will be deleted forever.</p>
+              <p className="text-slate-500 dark:text-slate-400 font-medium">This action is permanent. All data will be deleted.</p>
             </div>
             <div className="flex flex-col gap-3">
               <button onClick={clearAllData} className="w-full py-4 bg-red-600 text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-red-700 shadow-xl shadow-red-500/20 transition-all">Yes, Delete All Data</button>
-              <button onClick={() => setIsClearAllModalOpen(false)} className="w-full py-4 bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-slate-200 dark:hover:bg-slate-700 transition-all">Cancel</button>
+              <button onClick={() => setIsClearAllModalOpen(false)} className="w-full py-4 bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-2xl font-black uppercase tracking-widest text-xs transition-all">Cancel</button>
             </div>
           </div>
         </div>
@@ -973,7 +970,7 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {isScannerOpen && <ScannerModal onScan={handleScanResult} onClose={() => setIsScannerOpen(false)} title={scannerTarget === 'audit' ? 'Stock Auditing: Scan Item SKU' : 'Scanning...'} />}
+      {isScannerOpen && <ScannerModal onScan={handleScanResult} onClose={() => setIsScannerOpen(false)} title={scannerTarget === 'audit' ? 'Stock Auditing' : 'Scanning...'} />}
 
       {toast && (
         <div className="fixed bottom-8 left-1/2 -translate-x-1/2 bg-slate-900 dark:bg-white dark:text-slate-900 text-white px-6 py-3 rounded-full shadow-2xl animate-in slide-in-from-bottom-4 font-bold z-[200]">
