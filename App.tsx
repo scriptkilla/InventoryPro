@@ -58,7 +58,10 @@ import {
   UserPlus,
   FileJson,
   FileCode,
-  File as FileIcon
+  File as FileIcon,
+  Zap,
+  ZapOff,
+  Repeat
 } from 'lucide-react';
 import { Product, Category, Section, AppSettings, ActivityLog, User, UserRole } from './types';
 import { geminiService } from './services/geminiService';
@@ -83,12 +86,12 @@ const INITIAL_LOCATIONS: string[] = [
 ];
 
 const INITIAL_TEAM: User[] = [
-  { id: '1', name: 'Admin User', email: 'admin@inventorypro.ai', role: 'admin', avatarColor: 'bg-purple-500' },
-  { id: '2', name: 'Stock Manager', email: 'manager@inventorypro.ai', role: 'editor', avatarColor: 'bg-blue-500' }
+  { id: '1', name: 'Admin User', email: 'admin@inventorypro.com', role: 'admin', avatarColor: 'bg-purple-500' },
+  { id: '2', name: 'Stock Manager', email: 'manager@inventorypro.com', role: 'editor', avatarColor: 'bg-blue-500' }
 ];
 
 const DEFAULT_SETTINGS: AppSettings = {
-  storeName: 'InventoryPro AI',
+  storeName: 'InventoryPro',
   currency: '$',
   defaultLowStockThreshold: 10,
   enableAiFeatures: true,
@@ -436,11 +439,14 @@ const AiResearchView: React.FC<{
 );
 
 const ScannerModal: React.FC<{ 
-  onScan: (res: string) => void, 
+  onScan: (res: string, keepOpen?: boolean) => void, 
   onClose: () => void, 
   title: string 
 }> = ({ onScan, onClose, title }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const [isFlashOn, setIsFlashOn] = useState(false);
+  const [isContinuous, setIsContinuous] = useState(false);
+  const lastScanRef = useRef<{ code: string, time: number } | null>(null);
 
   useEffect(() => {
     const codeReader = new BrowserMultiFormatReader();
@@ -455,7 +461,24 @@ const ScannerModal: React.FC<{
         
         controls = await codeReader.decodeFromVideoDevice(selectedDeviceId, videoRef.current, (result) => {
           if (result) {
-            onScan(result.getText());
+            const code = result.getText();
+            const now = Date.now();
+            
+            // Debounce for continuous scanning: same code won't trigger twice in 1.5 seconds
+            if (isContinuous && lastScanRef.current?.code === code && (now - lastScanRef.current.time) < 1500) {
+              return;
+            }
+
+            lastScanRef.current = { code, time: now };
+            onScan(code, isContinuous);
+            
+            // Visual feedback for scan
+            if (videoRef.current?.parentElement) {
+              const overlay = document.createElement('div');
+              overlay.className = 'absolute inset-0 bg-emerald-500/30 animate-pulse pointer-events-none z-10';
+              videoRef.current.parentElement.appendChild(overlay);
+              setTimeout(() => overlay.remove(), 400);
+            }
           }
         });
       } catch (err) {
@@ -468,15 +491,40 @@ const ScannerModal: React.FC<{
     return () => {
       if (controls) controls.stop();
     };
-  }, [onScan]);
+  }, [onScan, isContinuous]);
+
+  const toggleFlash = async () => {
+    if (!videoRef.current) return;
+    const stream = videoRef.current.srcObject as MediaStream;
+    if (!stream) return;
+    
+    const track = stream.getVideoTracks()[0];
+    const capabilities = track.getCapabilities() as any;
+
+    if (capabilities.torch) {
+      try {
+        const newState = !isFlashOn;
+        await track.applyConstraints({
+          advanced: [{ torch: newState }]
+        } as any);
+        setIsFlashOn(newState);
+      } catch (e) {
+        console.error("Flashlight control failed", e);
+      }
+    }
+  };
 
   return (
     <div className="fixed inset-0 bg-black/90 backdrop-blur-xl z-[200] flex flex-col items-center justify-center p-6">
       <div className="w-full max-w-md space-y-6">
         <div className="flex justify-between items-center text-white">
-          <h3 className="text-xl font-black uppercase tracking-widest">{title}</h3>
+          <div className="flex items-center gap-3">
+            <h3 className="text-xl font-black uppercase tracking-widest">{title}</h3>
+            {isContinuous && <span className="bg-emerald-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full uppercase">Continuous</span>}
+          </div>
           <button onClick={onClose} className="p-2 bg-white/10 rounded-full hover:bg-white/20 transition-colors"><X/></button>
         </div>
+        
         <div className="relative aspect-square w-full bg-slate-800 rounded-[3rem] overflow-hidden border-4 border-blue-500 shadow-2xl shadow-blue-500/20">
           <video ref={videoRef} className="w-full h-full object-cover" />
           <div className="absolute inset-0 border-[40px] border-black/40 pointer-events-none">
@@ -485,6 +533,25 @@ const ScannerModal: React.FC<{
             </div>
           </div>
         </div>
+
+        <div className="flex items-center justify-center gap-4">
+          <button 
+            onClick={toggleFlash}
+            className={`p-4 rounded-2xl transition-all flex flex-col items-center gap-2 ${isFlashOn ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/20' : 'bg-white/10 text-slate-400 hover:bg-white/20'}`}
+          >
+            {isFlashOn ? <Zap size={24}/> : <ZapOff size={24}/>}
+            <span className="text-[10px] font-black uppercase">Flash</span>
+          </button>
+          
+          <button 
+            onClick={() => setIsContinuous(!isContinuous)}
+            className={`p-4 rounded-2xl transition-all flex flex-col items-center gap-2 ${isContinuous ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-500/20' : 'bg-white/10 text-slate-400 hover:bg-white/20'}`}
+          >
+            <Repeat size={24}/>
+            <span className="text-[10px] font-black uppercase">Continuous</span>
+          </button>
+        </div>
+        
         <p className="text-center text-slate-400 font-medium">Position the barcode or QR code within the frame</p>
       </div>
     </div>
@@ -731,25 +798,34 @@ const App: React.FC = () => {
     }
   };
 
-  const handleScanResult = (res: string) => {
-    setIsScannerOpen(false);
+  const handleScanResult = (res: string, keepOpen?: boolean) => {
+    if (!keepOpen) setIsScannerOpen(false);
+    
     if (scannerTarget === 'search') {
       setSearchQuery(res);
       setActiveSection('inventory');
+      if (keepOpen) setToast({ message: `Searching: ${res}`, type: 'info' });
     } else if (scannerTarget === 'sku') {
       setModalSku(res);
+      if (keepOpen) setToast({ message: `SKU Applied: ${res}`, type: 'success' });
     } else if (scannerTarget === 'audit') {
       const p = inventory.find(item => item.sku === res);
       if (p) {
-        setEditingProduct(p);
-        setModalSku(p.sku);
-        setModalName(p.name);
-        setModalCategory(p.category);
-        setModalPrice(p.price);
-        setModalLocationStocks(p.locationStocks || {});
-        setModalDescription(p.description || '');
-        setModalImage(p.image || null);
-        setIsModalOpen(true);
+        if (!keepOpen) {
+          setEditingProduct(p);
+          setModalSku(p.sku);
+          setModalName(p.name);
+          setModalCategory(p.category);
+          setModalPrice(p.price);
+          setModalLocationStocks(p.locationStocks || {});
+          setModalDescription(p.description || '');
+          setModalImage(p.image || null);
+          setIsModalOpen(true);
+        } else {
+          setToast({ message: `Item Detected: ${p.name}`, type: 'info' });
+          // In continuous audit mode, we just highlight it in logs or could auto-increment
+          addLog(`Audit Scan: ${p.name} (${p.sku}) identified`, 'ai');
+        }
       } else {
         setToast({ message: 'SKU not found in inventory', type: 'error' });
       }
@@ -1194,7 +1270,7 @@ const App: React.FC = () => {
       {/* Team Member Modal */}
       {isUserModalOpen && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl w-full max-w-sm p-8 border dark:border-slate-800 space-y-6 animate-in zoom-in-95">
+          <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl w-full max-sm p-8 border dark:border-slate-800 space-y-6 animate-in zoom-in-95">
              <div className="flex justify-between items-center">
               <h3 className="text-xl font-black">Add Team Member</h3>
               <button onClick={() => setIsUserModalOpen(false)} className="p-1 text-slate-400 hover:text-slate-100"><X/></button>
@@ -1241,7 +1317,7 @@ const App: React.FC = () => {
 
       {isTransferModalOpen && transferProduct && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[110] flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl w-full max-w-sm p-8 border dark:border-slate-800 space-y-6">
+          <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl w-full max-sm p-8 border dark:border-slate-800 space-y-6">
             <div className="flex justify-between items-center">
               <h3 className="text-xl font-black">Transfer Stock</h3>
               <button onClick={() => setIsTransferModalOpen(false)}><X/></button>
@@ -1279,7 +1355,7 @@ const App: React.FC = () => {
 
       {isClearAllModalOpen && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-[150] flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl w-full max-w-sm p-8 border dark:border-slate-800 text-center space-y-6">
+          <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl w-full max-sm p-8 border dark:border-slate-800 text-center space-y-6">
             <div className="w-20 h-20 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-3xl flex items-center justify-center mx-auto">
               <AlertOctagon size={40} />
             </div>
@@ -1321,7 +1397,7 @@ const App: React.FC = () => {
 
       {isLocationModalOpen && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-sm p-6 lg:p-8 border dark:border-slate-800">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-sm p-6 lg:p-8 border dark:border-slate-800">
              <div className="flex justify-between items-center mb-6">
               <h3 className="text-xl font-bold">New Zone</h3>
               <button onClick={() => setIsLocationModalOpen(false)}><X/></button>

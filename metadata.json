@@ -1,5 +1,5 @@
 {
-  "name": "InventoryPro AI",
+  "name": "InventoryPro",
   "description": "A sophisticated inventory management system powered by Gemini AI for smart product analysis, market research, and vendor sourcing.",
   "requestFramePermissions": [
     "camera"
