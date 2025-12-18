@@ -55,7 +55,10 @@ import {
   ArrowRightLeft,
   Users,
   Shield,
-  UserPlus
+  UserPlus,
+  FileJson,
+  FileCode,
+  File as FileIcon
 } from 'lucide-react';
 import { Product, Category, Section, AppSettings, ActivityLog, User, UserRole } from './types';
 import { geminiService } from './services/geminiService';
@@ -753,33 +756,114 @@ const App: React.FC = () => {
     }
   };
 
-  // Data Management: Export/Import
-  const handleExport = () => {
-    if (inventory.length === 0) {
-      setToast({ message: 'Nothing to export', type: 'info' });
-      return;
-    }
-    const exportData = inventory.map(item => {
-      const row: any = {
-        SKU: item.sku,
-        Name: item.name,
-        Category: item.category,
-        Price: item.price,
-        'Min Stock': item.minStock,
-        Description: item.description || '',
-        'Total Qty': getTotalQty(item.locationStocks)
-      };
-      locations.forEach(loc => {
-        row[loc] = item.locationStocks[loc] || 0;
-      });
-      return row;
-    });
-
+  // Data Management: Exports
+  const handleExportXLSX = () => {
+    if (inventory.length === 0) return setToast({ message: 'Nothing to export', type: 'info' });
+    const exportData = inventory.map(item => ({
+      SKU: item.sku,
+      Name: item.name,
+      Category: item.category,
+      Price: item.price,
+      'Min Stock': item.minStock,
+      Description: item.description || '',
+      'Total Qty': getTotalQty(item.locationStocks),
+      ...item.locationStocks
+    }));
     const ws = XLSX.utils.json_to_sheet(exportData);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Inventory");
     XLSX.writeFile(wb, `${settings.storeName}_Inventory.xlsx`);
-    setToast({ message: 'Inventory exported successfully', type: 'success' });
+    setToast({ message: 'Excel exported', type: 'success' });
+  };
+
+  const handleExportCSV = () => {
+    if (inventory.length === 0) return setToast({ message: 'Nothing to export', type: 'info' });
+    const exportData = inventory.map(item => ({
+      SKU: item.sku,
+      Name: item.name,
+      Category: item.category,
+      Price: item.price,
+      'Min Stock': item.minStock,
+      'Total Qty': getTotalQty(item.locationStocks)
+    }));
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    const csv = XLSX.utils.sheet_to_csv(ws);
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", `${settings.storeName}_Inventory.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    setToast({ message: 'CSV exported', type: 'success' });
+  };
+
+  const handleExportPDF = () => {
+    if (inventory.length === 0) return setToast({ message: 'Nothing to export', type: 'info' });
+    const doc = new jsPDF();
+    doc.setFontSize(18);
+    doc.text(`${settings.storeName} - Inventory Report`, 14, 22);
+    doc.setFontSize(11);
+    doc.setTextColor(100);
+    doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, 30);
+    
+    const tableColumn = ["SKU", "Product Name", "Category", "Price", "Total Stock"];
+    const tableRows = inventory.map(item => [
+      item.sku,
+      item.name,
+      item.category,
+      `${settings.currency}${item.price.toFixed(2)}`,
+      getTotalQty(item.locationStocks).toString()
+    ]);
+
+    (doc as any).autoTable({
+      startY: 35,
+      head: [tableColumn],
+      body: tableRows,
+      theme: 'grid',
+      headStyles: { fillColor: [59, 130, 246], textColor: [255, 255, 255] },
+      alternateRowStyles: { fillColor: [245, 247, 250] },
+    });
+
+    doc.save(`${settings.storeName}_Inventory.pdf`);
+    setToast({ message: 'PDF exported', type: 'success' });
+  };
+
+  const handleExportJSON = () => {
+    if (inventory.length === 0) return setToast({ message: 'Nothing to export', type: 'info' });
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(inventory, null, 2));
+    const downloadAnchorNode = document.createElement('a');
+    downloadAnchorNode.setAttribute("href", dataStr);
+    downloadAnchorNode.setAttribute("download", `${settings.storeName}_Inventory.json`);
+    document.body.appendChild(downloadAnchorNode);
+    downloadAnchorNode.click();
+    downloadAnchorNode.remove();
+    setToast({ message: 'JSON exported', type: 'success' });
+  };
+
+  const handleExportXML = () => {
+    if (inventory.length === 0) return setToast({ message: 'Nothing to export', type: 'info' });
+    let xml = '<?xml version="1.0" encoding="UTF-8"?>\n<inventory>\n';
+    inventory.forEach(item => {
+      xml += '  <product>\n';
+      xml += `    <sku>${item.sku}</sku>\n`;
+      xml += `    <name>${item.name}</name>\n`;
+      xml += `    <category>${item.category}</category>\n`;
+      xml += `    <price>${item.price}</price>\n`;
+      xml += `    <total_qty>${getTotalQty(item.locationStocks)}</total_qty>\n`;
+      xml += '  </product>\n';
+    });
+    xml += '</inventory>';
+    const blob = new Blob([xml], { type: 'application/xml;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", `${settings.storeName}_Inventory.xml`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    setToast({ message: 'XML exported', type: 'success' });
   };
 
   const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -787,18 +871,43 @@ const App: React.FC = () => {
     if (!file) return;
 
     const reader = new FileReader();
+    const extension = file.name.split('.').pop()?.toLowerCase();
+
     reader.onload = (event) => {
       try {
-        const data = new Uint8Array(event.target?.result as ArrayBuffer);
-        const workbook = XLSX.read(data, { type: 'array' });
-        const sheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[sheetName];
-        const json = XLSX.utils.sheet_to_json(worksheet);
+        let rawData: any[] = [];
 
-        const importedProducts: Product[] = json.map((row: any) => {
+        if (extension === 'json') {
+          const text = new TextDecoder().decode(event.target?.result as ArrayBuffer);
+          const parsed = JSON.parse(text);
+          rawData = Array.isArray(parsed) ? parsed : [parsed];
+        } else if (extension === 'xml') {
+          const text = new TextDecoder().decode(event.target?.result as ArrayBuffer);
+          const parser = new DOMParser();
+          const xmlDoc = parser.parseFromString(text, "text/xml");
+          const products = xmlDoc.getElementsByTagName("product");
+          for (let i = 0; i < products.length; i++) {
+            const item: any = {};
+            const children = products[i].children;
+            for (let j = 0; j < children.length; j++) {
+              item[children[j].tagName] = children[j].textContent;
+            }
+            rawData.push(item);
+          }
+        } else {
+          // Default to XLSX/CSV
+          const data = new Uint8Array(event.target?.result as ArrayBuffer);
+          const workbook = XLSX.read(data, { type: 'array' });
+          const sheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[sheetName];
+          rawData = XLSX.utils.sheet_to_json(worksheet);
+        }
+
+        const importedProducts: Product[] = rawData.map((row: any) => {
           const locStocks: Record<string, number> = {};
           locations.forEach(loc => {
-            if (row[loc] !== undefined) locStocks[loc] = parseInt(row[loc]) || 0;
+            const qty = row[loc] ?? row.locationStocks?.[loc] ?? 0;
+            locStocks[loc] = parseInt(qty) || 0;
           });
 
           return {
@@ -807,7 +916,7 @@ const App: React.FC = () => {
             name: String(row.Name || row.name || 'Imported Item'),
             category: String(row.Category || row.category || 'Uncategorized'),
             price: parseFloat(row.Price || row.price) || 0,
-            minStock: parseInt(row['Min Stock'] || row.minStock) || settings.defaultLowStockThreshold,
+            minStock: parseInt(row['Min Stock'] || row.minStock || row.min_stock) || settings.defaultLowStockThreshold,
             description: String(row.Description || row.description || ''),
             locationStocks: locStocks,
             lastUpdated: new Date().toISOString()
@@ -815,7 +924,7 @@ const App: React.FC = () => {
         });
 
         setInventory(prev => [...prev, ...importedProducts]);
-        addLog(`Imported ${importedProducts.length} items from file`, 'add');
+        addLog(`Imported ${importedProducts.length} items from ${extension?.toUpperCase()}`, 'add');
         setToast({ message: `Successfully imported ${importedProducts.length} items`, type: 'success' });
         if (importInputRef.current) importInputRef.current.value = '';
       } catch (err) {
@@ -895,22 +1004,34 @@ const App: React.FC = () => {
                 {/* Data Management Section */}
                 <div className="bg-white dark:bg-slate-900 p-8 rounded-[2rem] border dark:border-slate-800 space-y-4">
                   <h3 className="text-xs font-black uppercase tracking-widest text-slate-400">Data Management</h3>
-                  <div className="grid grid-cols-2 gap-3">
-                    <button onClick={handleExport} className="flex flex-col items-center justify-center p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl hover:bg-blue-600 hover:text-white transition-all group">
-                      <Download size={24} className="text-blue-600 group-hover:text-white mb-2"/>
-                      <span className="font-bold text-xs">Export Excel</span>
-                    </button>
-                    <button onClick={() => importInputRef.current?.click()} className="flex flex-col items-center justify-center p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl hover:bg-emerald-600 hover:text-white transition-all group">
-                      <FileUp size={24} className="text-emerald-600 group-hover:text-white mb-2"/>
-                      <span className="font-bold text-xs">Import File</span>
-                      <input 
-                        type="file" 
-                        ref={importInputRef} 
-                        onChange={handleImport} 
-                        className="hidden" 
-                        accept=".xlsx,.xls,.csv"
-                      />
-                    </button>
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                      <button onClick={handleExportPDF} className="flex flex-col items-center justify-center p-3 bg-slate-50 dark:bg-slate-800 rounded-xl hover:bg-red-600 hover:text-white transition-all group">
+                        <FileIcon size={20} className="text-red-500 group-hover:text-white mb-1"/>
+                        <span className="font-bold text-[10px] uppercase">PDF</span>
+                      </button>
+                      <button onClick={handleExportCSV} className="flex flex-col items-center justify-center p-3 bg-slate-50 dark:bg-slate-800 rounded-xl hover:bg-slate-600 hover:text-white transition-all group">
+                        <FileText size={20} className="text-slate-500 group-hover:text-white mb-1"/>
+                        <span className="font-bold text-[10px] uppercase">CSV</span>
+                      </button>
+                      <button onClick={handleExportXLSX} className="flex flex-col items-center justify-center p-3 bg-slate-50 dark:bg-slate-800 rounded-xl hover:bg-emerald-600 hover:text-white transition-all group">
+                        <FileSpreadsheet size={20} className="text-emerald-500 group-hover:text-white mb-1"/>
+                        <span className="font-bold text-[10px] uppercase">Excel</span>
+                      </button>
+                      <button onClick={handleExportXML} className="flex flex-col items-center justify-center p-3 bg-slate-50 dark:bg-slate-800 rounded-xl hover:bg-amber-600 hover:text-white transition-all group">
+                        <FileCode size={20} className="text-amber-500 group-hover:text-white mb-1"/>
+                        <span className="font-bold text-[10px] uppercase">XML</span>
+                      </button>
+                      <button onClick={handleExportJSON} className="flex flex-col items-center justify-center p-3 bg-slate-50 dark:bg-slate-800 rounded-xl hover:bg-blue-600 hover:text-white transition-all group">
+                        <FileJson size={20} className="text-blue-500 group-hover:text-white mb-1"/>
+                        <span className="font-bold text-[10px] uppercase">JSON</span>
+                      </button>
+                      <button onClick={() => importInputRef.current?.click()} className="flex flex-col items-center justify-center p-3 bg-slate-100 dark:bg-slate-700 rounded-xl hover:bg-purple-600 hover:text-white transition-all group border-2 border-dashed border-slate-300 dark:border-slate-600">
+                        <FileUp size={20} className="text-purple-500 group-hover:text-white mb-1"/>
+                        <span className="font-bold text-[10px] uppercase">Import</span>
+                        <input type="file" ref={importInputRef} onChange={handleImport} className="hidden" accept=".xlsx,.xls,.csv,.xml,.json" />
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1009,7 +1130,6 @@ const App: React.FC = () => {
                     <input required className="flex-1 px-4 py-2 border rounded-xl dark:bg-slate-800 dark:border-slate-700 outline-none font-bold uppercase" value={modalSku} onChange={e => setModalSku(e.target.value.toUpperCase())} />
                     <button type="button" onClick={generateAutoSku} className="p-2.5 bg-slate-100 dark:bg-slate-800 rounded-xl hover:bg-amber-600 hover:text-white transition-colors" title="Generate SKU"><RefreshCw size={18}/></button>
                   </div>
-                  {/* SKU Barcode Preview with Number */}
                   {modalSku && (
                     <div className="mt-2 space-y-1">
                       <p className="text-[10px] font-black uppercase text-slate-400">Barcode Preview</p>
