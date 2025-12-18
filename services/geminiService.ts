@@ -6,8 +6,9 @@ export const geminiService = {
   // 1. Analyze product image to extract details
   async analyzeProductImage(base64Image: string): Promise<Partial<Product>> {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    // Use gemini-3-flash-preview for multimodal tasks like image analysis
     const response = await ai.models.generateContent({
-      model: 'gemini-3-pro-image-preview',
+      model: 'gemini-3-flash-preview',
       contents: {
         parts: [
           {
@@ -65,6 +66,7 @@ export const geminiService = {
   // 3. Maps Grounding for Vendor Sourcing
   async findSuppliers(productName: string, location: { lat: number, lng: number }): Promise<{ text: string, sources: any[] }> {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    // Maps grounding is supported in 2.5 series models as per documentation rules
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
       contents: `Find 3 local suppliers or stores that sell "${productName}" near my current location.`,
