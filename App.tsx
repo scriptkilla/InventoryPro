@@ -279,7 +279,12 @@ const PrintOptionsModal: React.FC<{
           </div>
           <p className="font-bold text-lg">{product.name}</p>
           <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">{product.sku}</p>
-          {product.sku && <Barcode value={product.sku} className="border dark:border-slate-700" />}
+          {product.sku && (
+            <div className="space-y-1">
+              <p className="text-sm font-bold text-slate-900 dark:text-slate-100">{product.name}</p> {/* Added product name here */}
+              <Barcode value={product.sku} className="border dark:border-slate-700" />
+            </div>
+          )}
         </div>
 
         <div className="space-y-4 pt-4 border-t dark:border-slate-800">
@@ -759,6 +764,15 @@ const App: React.FC = () => {
   const [newUserEmail, setNewUserEmail] = useState('');
   const [newUserRole, setNewUserRole] = useState<UserRole>('viewer');
 
+  // New states for Settings page
+  const [newEmail, setNewEmail] = useState('');
+  const [currentPasswordForEmail, setCurrentPasswordForEmail] = useState('');
+  const [currentPasswordForPassword, setCurrentPasswordForPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
+  const [newPhoneNumber, setNewPhoneNumber] = useState('');
+
+
   // Transfer Modal State
   const [transferFrom, setTransferFrom] = useState('');
   const [transferTo, setTransferTo] = useState('');
@@ -1220,6 +1234,53 @@ const App: React.FC = () => {
     setIsClearAllModalOpen(false);
   };
 
+  const handleChangeEmail = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newEmail || !currentPasswordForEmail) {
+      setToast({ message: 'Please fill all fields for email change', type: 'error' });
+      return;
+    }
+    // Placeholder logic: In a real app, this would involve API calls.
+    console.log('Changing email to:', newEmail, 'with password:', currentPasswordForEmail);
+    addLog(`Attempted to change email to ${newEmail}`, 'update');
+    setToast({ message: 'Email change initiated (placeholder)', type: 'info' });
+    setNewEmail('');
+    setCurrentPasswordForEmail('');
+  };
+
+  const handleChangePassword = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentPasswordForPassword || !newPassword || !confirmNewPassword) {
+      setToast({ message: 'Please fill all fields for password change', type: 'error' });
+      return;
+    }
+    if (newPassword !== confirmNewPassword) {
+      setToast({ message: 'New passwords do not match', type: 'error' });
+      return;
+    }
+    // Placeholder logic: In a real app, this would involve API calls.
+    console.log('Changing password with current:', currentPasswordForPassword, 'new:', newPassword);
+    addLog('Attempted to change password', 'update');
+    setToast({ message: 'Password change initiated (placeholder)', type: 'info' });
+    setCurrentPasswordForPassword('');
+    setNewPassword('');
+    setConfirmNewPassword('');
+  };
+
+  const handleChangePhoneNumber = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newPhoneNumber) {
+      setToast({ message: 'Please enter a new phone number', type: 'error' });
+      return;
+    }
+    // Placeholder logic: In a real app, this would involve API calls.
+    console.log('Changing phone number to:', newPhoneNumber);
+    addLog(`Attempted to change phone number to ${newPhoneNumber}`, 'update');
+    setToast({ message: 'Phone number change initiated (placeholder)', type: 'info' });
+    setNewPhoneNumber('');
+  };
+
+
   return (
     <div className="flex h-screen bg-slate-50 dark:bg-slate-950 overflow-hidden text-slate-900 dark:text-slate-100 transition-colors duration-300">
       <aside className="hidden lg:flex w-64 bg-slate-900 text-white flex-col shadow-2xl flex-shrink-0">
@@ -1319,6 +1380,96 @@ const App: React.FC = () => {
                 </div>
               </div>
               
+              {/* Account Settings Section */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="bg-white dark:bg-slate-900 p-8 rounded-[2rem] border dark:border-slate-800 space-y-4">
+                  <h3 className="text-xs font-black uppercase tracking-widest text-slate-400">Account Security</h3>
+                  <form onSubmit={handleChangeEmail} className="space-y-4">
+                    <div className="space-y-1">
+                      <label htmlFor="newEmail" className="text-[10px] font-black uppercase text-slate-400">Change Email Address</label>
+                      <input 
+                        id="newEmail"
+                        type="email" 
+                        className="w-full px-4 py-2 border rounded-xl dark:bg-slate-800 dark:border-slate-700 outline-none font-bold" 
+                        placeholder="new.email@example.com"
+                        value={newEmail}
+                        onChange={e => setNewEmail(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label htmlFor="currentPasswordForEmail" className="text-[10px] font-black uppercase text-slate-400">Current Password</label>
+                      <input 
+                        id="currentPasswordForEmail"
+                        type="password" 
+                        className="w-full px-4 py-2 border rounded-xl dark:bg-slate-800 dark:border-slate-700 outline-none font-bold" 
+                        placeholder="••••••••"
+                        value={currentPasswordForEmail}
+                        onChange={e => setCurrentPasswordForEmail(e.target.value)}
+                      />
+                    </div>
+                    <button type="submit" className="w-full py-3 bg-blue-600 text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-blue-700 transition-all">Update Email</button>
+                  </form>
+                </div>
+
+                <div className="bg-white dark:bg-slate-900 p-8 rounded-[2rem] border dark:border-slate-800 space-y-4">
+                  <h3 className="text-xs font-black uppercase tracking-widest text-slate-400">Password Management</h3>
+                  <form onSubmit={handleChangePassword} className="space-y-4">
+                    <div className="space-y-1">
+                      <label htmlFor="currentPasswordForPassword" className="text-[10px] font-black uppercase text-slate-400">Current Password</label>
+                      <input 
+                        id="currentPasswordForPassword"
+                        type="password" 
+                        className="w-full px-4 py-2 border rounded-xl dark:bg-slate-800 dark:border-slate-700 outline-none font-bold" 
+                        placeholder="••••••••"
+                        value={currentPasswordForPassword}
+                        onChange={e => setCurrentPasswordForPassword(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label htmlFor="newPassword" className="text-[10px] font-black uppercase text-slate-400">New Password</label>
+                      <input 
+                        id="newPassword"
+                        type="password" 
+                        className="w-full px-4 py-2 border rounded-xl dark:bg-slate-800 dark:border-slate-700 outline-none font-bold" 
+                        placeholder="••••••••"
+                        value={newPassword}
+                        onChange={e => setNewPassword(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label htmlFor="confirmNewPassword" className="text-[10px] font-black uppercase text-slate-400">Confirm New Password</label>
+                      <input 
+                        id="confirmNewPassword"
+                        type="password" 
+                        className="w-full px-4 py-2 border rounded-xl dark:bg-slate-800 dark:border-slate-700 outline-none font-bold" 
+                        placeholder="••••••••"
+                        value={confirmNewPassword}
+                        onChange={e => setConfirmNewPassword(e.target.value)}
+                      />
+                    </div>
+                    <button type="submit" className="w-full py-3 bg-blue-600 text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-blue-700 transition-all">Update Password</button>
+                  </form>
+                </div>
+
+                <div className="bg-white dark:bg-slate-900 p-8 rounded-[2rem] border dark:border-slate-800 space-y-4 md:col-span-2">
+                  <h3 className="text-xs font-black uppercase tracking-widest text-slate-400">Contact Information</h3>
+                  <form onSubmit={handleChangePhoneNumber} className="space-y-4">
+                    <div className="space-y-1">
+                      <label htmlFor="newPhoneNumber" className="text-[10px] font-black uppercase text-slate-400">Update Phone Number</label>
+                      <input 
+                        id="newPhoneNumber"
+                        type="tel" 
+                        className="w-full px-4 py-2 border rounded-xl dark:bg-slate-800 dark:border-slate-700 outline-none font-bold" 
+                        placeholder="e.g. +1 (555) 123-4567"
+                        value={newPhoneNumber}
+                        onChange={e => setNewPhoneNumber(e.target.value)}
+                      />
+                    </div>
+                    <button type="submit" className="w-full py-3 bg-blue-600 text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-blue-700 transition-all">Update Phone Number</button>
+                  </form>
+                </div>
+              </div>
+
               {/* Team & Permissions Section */}
               <div className="bg-white dark:bg-slate-900 p-8 rounded-[2rem] border dark:border-slate-800 space-y-6">
                 <div className="flex justify-between items-center">
@@ -1438,9 +1589,9 @@ const App: React.FC = () => {
                   {modalImage ? <img src={modalImage} className="w-full h-full object-cover" /> : <ImageIcon size={24} className="text-slate-300"/>}
                 </div>
                 <div className="flex-1 space-y-1">
-                  <label className="text-[10px] font-black uppercase text-slate-400">SKU</label>
+                  <label htmlFor="modalSku" className="text-[10px] font-black uppercase text-slate-400">SKU</label>
                   <div className="flex gap-2">
-                    <input required className="flex-1 px-4 py-2 border rounded-xl dark:bg-slate-800 dark:border-slate-700 outline-none font-bold uppercase" value={modalSku} onChange={e => setModalSku(e.target.value.toUpperCase())} />
+                    <input id="modalSku" required className="flex-1 px-4 py-2 border rounded-xl dark:bg-slate-800 dark:border-slate-700 outline-none font-bold uppercase" value={modalSku} onChange={e => setModalSku(e.target.value.toUpperCase())} />
                     <button type="button" onClick={() => { setScannerTarget('sku'); setIsScannerOpen(true); }} className="p-2.5 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-xl hover:bg-blue-600 hover:text-white transition-all" title="Scan Barcode"><Scan size={18}/></button>
                     <button type="button" onClick={generateAutoSku} className="p-2.5 bg-slate-100 dark:bg-slate-800 rounded-xl hover:bg-amber-600 hover:text-white transition-colors" title="Generate SKU"><RefreshCw size={18}/></button>
                   </div>
@@ -1454,21 +1605,21 @@ const App: React.FC = () => {
               </div>
 
               <div className="space-y-1">
-                <label className="text-[10px] font-black uppercase text-slate-400">Product Name</label>
-                <input required className="w-full px-4 py-2 border rounded-xl dark:bg-slate-800 dark:border-slate-700 outline-none font-bold" value={modalName} onChange={e => setModalName(e.target.value)} />
+                <label htmlFor="modalName" className="text-[10px] font-black uppercase text-slate-400">Product Name</label>
+                <input id="modalName" required className="w-full px-4 py-2 border rounded-xl dark:bg-slate-800 dark:border-slate-700 outline-none font-bold" value={modalName} onChange={e => setModalName(e.target.value)} />
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black uppercase text-slate-400">Category</label>
-                  <select className="w-full px-4 py-2 border rounded-xl dark:bg-slate-800 dark:border-slate-700 outline-none font-bold" value={modalCategory} onChange={e => setModalCategory(e.target.value)}>
+                  <label htmlFor="modalCategory" className="text-[10px] font-black uppercase text-slate-400">Category</label>
+                  <select id="modalCategory" className="w-full px-4 py-2 border rounded-xl dark:bg-slate-800 dark:border-slate-700 outline-none font-bold" value={modalCategory} onChange={e => setModalCategory(e.target.value)}>
                     <option value="">Select Category</option>
                     {categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
                   </select>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black uppercase text-slate-400">Price ({settings.currency})</label>
-                  <input type="number" step="0.01" className="w-full px-4 py-2 border rounded-xl dark:bg-slate-800 dark:border-slate-700 outline-none font-bold" value={modalPrice} onChange={e => setModalPrice(parseFloat(e.target.value) || 0)} />
+                  <label htmlFor="modalPrice" className="text-[10px] font-black uppercase text-slate-400">Price ({settings.currency})</label>
+                  <input id="modalPrice" type="number" step="0.01" className="w-full px-4 py-2 border rounded-xl dark:bg-slate-800 dark:border-slate-700 outline-none font-bold" value={modalPrice} onChange={e => setModalPrice(parseFloat(e.target.value) || 0)} />
                 </div>
               </div>
 
@@ -1477,8 +1628,9 @@ const App: React.FC = () => {
                 <div className="space-y-3">
                   {locations.map(loc => (
                     <div key={loc} className="flex items-center justify-between">
-                      <span className="text-sm font-bold">{loc}</span>
+                      <label htmlFor={`stock-${loc}`} className="text-sm font-bold">{loc}</label>
                       <input 
+                        id={`stock-${loc}`}
                         type="number" 
                         className="w-24 px-3 py-1.5 border rounded-lg dark:bg-slate-900 dark:border-slate-700 outline-none text-right font-black" 
                         value={modalLocationStocks[loc] || 0}
@@ -1491,12 +1643,12 @@ const App: React.FC = () => {
 
               <div className="space-y-1">
                 <div className="flex justify-between items-center mb-1">
-                  <label className="text-[10px] font-black uppercase text-slate-400">Description</label>
+                  <label htmlFor="modalDescription" className="text-[10px] font-black uppercase text-slate-400">Description</label>
                   <button type="button" onClick={generateAIDescription} className="text-[10px] font-black uppercase text-blue-600 hover:text-blue-700 flex items-center gap-1">
                     <Wand2 size={12}/> AI Generate
                   </button>
                 </div>
-                <textarea className="w-full px-4 py-2 border rounded-xl dark:bg-slate-800 dark:border-slate-700 outline-none min-h-[80px]" value={modalDescription} onChange={e => setModalDescription(e.target.value)} />
+                <textarea id="modalDescription" className="w-full px-4 py-2 border rounded-xl dark:bg-slate-800 dark:border-slate-700 outline-none min-h-[80px]" value={modalDescription} onChange={e => setModalDescription(e.target.value)} />
               </div>
 
               <button className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-blue-700 shadow-xl shadow-blue-500/20 transition-all">Save Changes</button>
@@ -1515,8 +1667,9 @@ const App: React.FC = () => {
             </div>
             <form onSubmit={handleAddOrEditTeamMember} className="space-y-4">
               <div className="space-y-1">
-                <label className="text-[10px] font-black uppercase text-slate-400">Full Name</label>
+                <label htmlFor="newUserName" className="text-[10px] font-black uppercase text-slate-400">Full Name</label>
                 <input 
+                  id="newUserName"
                   required 
                   className="w-full px-4 py-3 border rounded-xl dark:bg-slate-800 dark:border-slate-700 font-bold" 
                   placeholder="e.g. John Doe"
@@ -1525,8 +1678,9 @@ const App: React.FC = () => {
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-[10px] font-black uppercase text-slate-400">Email Address</label>
+                <label htmlFor="newUserEmail" className="text-[10px] font-black uppercase text-slate-400">Email Address</label>
                 <input 
+                  id="newUserEmail"
                   required 
                   type="email"
                   className="w-full px-4 py-3 border rounded-xl dark:bg-slate-800 dark:border-slate-700 font-bold" 
@@ -1536,8 +1690,9 @@ const App: React.FC = () => {
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-[10px] font-black uppercase text-slate-400">Role</label>
+                <label htmlFor="newUserRole" className="text-[10px] font-black uppercase text-slate-400">Role</label>
                 <select 
+                  id="newUserRole"
                   className="w-full px-4 py-3 border rounded-xl dark:bg-slate-800 dark:border-slate-700 font-bold"
                   value={newUserRole}
                   onChange={e => setNewUserRole(e.target.value as UserRole)}
@@ -1568,24 +1723,24 @@ const App: React.FC = () => {
             </div>
             <form onSubmit={handleTransfer} className="space-y-4">
               <div className="space-y-1">
-                <label className="text-[10px] font-black uppercase text-slate-400">From</label>
-                <select className="w-full px-4 py-2 border rounded-xl dark:bg-slate-800 dark:border-slate-700 font-bold" value={transferFrom} onChange={e => setTransferFrom(e.target.value)}>
+                <label htmlFor="transferFrom" className="text-[10px] font-black uppercase text-slate-400">From</label>
+                <select id="transferFrom" className="w-full px-4 py-2 border rounded-xl dark:bg-slate-800 dark:border-slate-700 font-bold" value={transferFrom} onChange={e => setTransferFrom(e.target.value)}>
                   {Object.entries(transferProduct.locationStocks).filter(([_, q]) => (Number(q) || 0) > 0).map(([l, q]) => (
                     <option key={l} value={l}>{l} ({q} available)</option>
                   ))}
                 </select>
               </div>
               <div className="space-y-1">
-                <label className="text-[10px] font-black uppercase text-slate-400">To</label>
-                <select className="w-full px-4 py-2 border rounded-xl dark:bg-slate-800 dark:border-slate-700 font-bold" value={transferTo} onChange={e => setTransferTo(e.target.value)}>
+                <label htmlFor="transferTo" className="text-[10px] font-black uppercase text-slate-400">To</label>
+                <select id="transferTo" className="w-full px-4 py-2 border rounded-xl dark:bg-slate-800 dark:border-slate-700 font-bold" value={transferTo} onChange={e => setTransferTo(e.target.value)}>
                   {locations.filter(l => l !== transferFrom).map(l => (
                     <option key={l} value={l}>{l}</option>
                   ))}
                 </select>
               </div>
               <div className="space-y-1">
-                <label className="text-[10px] font-black uppercase text-slate-400">Amount</label>
-                <input required type="number" min="1" max={Number(transferProduct.locationStocks[transferFrom]) || 0} className="w-full px-4 py-2 border rounded-xl dark:bg-slate-800 dark:border-slate-700 font-bold" value={transferAmount} onChange={e => setTransferAmount(parseInt(e.target.value) || 0)} />
+                <label htmlFor="transferAmount" className="text-[10px] font-black uppercase text-slate-400">Amount</label>
+                <input id="transferAmount" required type="number" min="1" max={Number(transferProduct.locationStocks[transferFrom]) || 0} className="w-full px-4 py-2 border rounded-xl dark:bg-slate-800 dark:border-slate-700 font-bold" value={transferAmount} onChange={e => setTransferAmount(parseInt(e.target.value) || 0)} />
               </div>
               <button className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-blue-700 transition-all">Move Stock</button>
             </form>
@@ -1627,8 +1782,10 @@ const App: React.FC = () => {
                addLog(`Created category: ${name}`, 'add');
                setIsCategoryModalOpen(false);
             }} className="space-y-4">
-              <input name="name" required placeholder="Category Name" className="w-full px-4 py-2 border rounded-xl dark:bg-slate-800 dark:border-slate-700 outline-none font-bold" />
-              <textarea name="description" placeholder="Description" className="w-full px-4 py-2 border rounded-xl dark:bg-slate-800 dark:border-slate-700 outline-none h-24" />
+              <label htmlFor="categoryName" className="sr-only">Category Name</label>
+              <input id="categoryName" name="name" required placeholder="Category Name" className="w-full px-4 py-2 border rounded-xl dark:bg-slate-800 dark:border-slate-700 outline-none font-bold" />
+              <label htmlFor="categoryDescription" className="sr-only">Description</label>
+              <textarea id="categoryDescription" name="description" placeholder="Description" className="w-full px-4 py-2 border rounded-xl dark:bg-slate-800 dark:border-slate-700 outline-none h-24" />
               <button className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold">Save</button>
             </form>
           </div>
@@ -1652,7 +1809,8 @@ const App: React.FC = () => {
                }
                setIsLocationModalOpen(false);
             }} className="space-y-4">
-              <input name="name" required placeholder="Zone Name (e.g. Aisle 4)" className="w-full px-4 py-2 border rounded-xl dark:bg-slate-800 dark:border-slate-700 outline-none font-bold" />
+              <label htmlFor="zoneName" className="sr-only">Zone Name</label>
+              <input id="zoneName" name="name" required placeholder="Zone Name (e.g. Aisle 4)" className="w-full px-4 py-2 border rounded-xl dark:bg-slate-800 dark:border-slate-700 outline-none font-bold" />
               <button className="w-full py-3 bg-emerald-600 text-white rounded-xl font-bold">Create Zone</button>
             </form>
           </div>
