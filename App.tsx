@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { 
   LayoutDashboard, 
   Package, 
@@ -61,7 +61,11 @@ import {
   File as FileIcon,
   Zap,
   ZapOff,
-  Repeat
+  Repeat,
+  LogOut,
+  User as UserIcon,
+  Lock,
+  UserRoundPlus
 } from 'lucide-react';
 import { Product, Category, Section, AppSettings, ActivityLog, User, UserRole } from './types';
 import { geminiService } from './services/geminiService';
@@ -72,6 +76,7 @@ import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
 // @ts-ignore
 import JsBarcode from 'jsbarcode';
+import LoginPage from './LoginPage'; // Import the new login page component
 
 // --- Constants ---
 
@@ -702,10 +707,132 @@ const ScannerModal: React.FC<{
   );
 };
 
+// --- Signup Modal Component ---
+interface SignupModalProps {
+  onSignup: (user: User) => void;
+  onClose: () => void;
+  onShowToast: (toast: { message: string, type: 'success' | 'error' | 'info' }) => void;
+}
+
+const SignupModal: React.FC<SignupModalProps> = ({ onSignup, onClose, onShowToast }) => {
+  const [signupName, setSignupName] = useState('');
+  const [signupEmail, setSignupEmail] = useState('');
+  const [signupPassword, setSignupPassword] = useState('');
+  const [signupConfirmPassword, setSignupConfirmPassword] = useState('');
+
+  const handleSignupSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!signupName || !signupEmail || !signupPassword || !signupConfirmPassword) {
+      onShowToast({ message: 'All fields are required', type: 'error' });
+      return;
+    }
+    if (signupPassword !== signupConfirmPassword) {
+      onShowToast({ message: 'Passwords do not match', type: 'error' });
+      return;
+    }
+    if (signupPassword.length < 6) {
+      onShowToast({ message: 'Password must be at least 6 characters long', type: 'error' });
+      return;
+    }
+
+    const colors = ['bg-red-500', 'bg-blue-500', 'bg-emerald-500', 'bg-purple-500', 'bg-amber-500', 'bg-pink-500'];
+    const newUser: User = {
+      id: `user-${Date.now()}`,
+      name: signupName,
+      email: signupEmail,
+      role: 'viewer', // Default role for new signups
+      avatarColor: colors[Math.floor(Math.random() * colors.length)]
+    };
+    onSignup(newUser);
+    onClose();
+    onShowToast({ message: `Account created for ${signupName}! You are now logged in.`, type: 'success' });
+    // Reset form fields
+    setSignupName('');
+    setSignupEmail('');
+    setSignupPassword('');
+    setSignupConfirmPassword('');
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
+      <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl w-full max-w-sm sm:max-w-md p-4 sm:p-6 lg:p-8 border dark:border-slate-800 space-y-6 animate-in zoom-in-95">
+        <div className="flex justify-between items-center">
+          <h3 className="text-xl font-black flex items-center gap-2">
+            <UserRoundPlus size={24} className="text-blue-600" /> Create New Account
+          </h3>
+          <button onClick={onClose} className="p-1 text-slate-400 hover:text-slate-600"><X/></button>
+        </div>
+        <form onSubmit={handleSignupSubmit} className="space-y-4">
+          <div className="space-y-1">
+            <label htmlFor="signupName" className="text-[10px] font-black uppercase text-slate-400">Full Name</label>
+            <input 
+              id="signupName"
+              type="text" 
+              className="w-full px-4 py-3 border rounded-xl dark:bg-slate-800 dark:border-slate-700 font-bold" 
+              placeholder="e.g. Jane Doe"
+              value={signupName}
+              onChange={e => setSignupName(e.target.value)}
+              required
+            />
+          </div>
+          <div className="space-y-1">
+            <label htmlFor="signupEmail" className="text-[10px] font-black uppercase text-slate-400">Email Address</label>
+            <input 
+              id="signupEmail"
+              type="email"
+              className="w-full px-4 py-3 border rounded-xl dark:bg-slate-800 dark:border-slate-700 font-bold" 
+              placeholder="jane.doe@example.com"
+              value={signupEmail}
+              onChange={e => setSignupEmail(e.target.value)}
+              required
+            />
+          </div>
+          <div className="space-y-1">
+            <label htmlFor="signupPassword" className="text-[10px] font-black uppercase text-slate-400">Password</label>
+            <input 
+              id="signupPassword"
+              type="password"
+              className="w-full px-4 py-3 border rounded-xl dark:bg-slate-800 dark:border-slate-700 font-bold" 
+              placeholder="••••••••"
+              value={signupPassword}
+              onChange={e => setSignupPassword(e.target.value)}
+              required
+            />
+          </div>
+          <div className="space-y-1">
+            <label htmlFor="signupConfirmPassword" className="text-[10px] font-black uppercase text-slate-400">Confirm Password</label>
+            <input 
+              id="signupConfirmPassword"
+              type="password"
+              className="w-full px-4 py-3 border rounded-xl dark:bg-slate-800 dark:border-slate-700 font-bold" 
+              placeholder="••••••••"
+              value={signupConfirmPassword}
+              onChange={e => setSignupConfirmPassword(e.target.value)}
+              required
+            />
+          </div>
+          <button type="submit" className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-blue-700 transition-all shadow-xl shadow-blue-500/20">
+            Create Account
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+};
+
 // --- App Component ---
 
 const App: React.FC = () => {
   const [activeSection, setActiveSection] = useState<Section>('dashboard');
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(() => {
+    const saved = localStorage.getItem('isLoggedIn');
+    return saved ? JSON.parse(saved) : false;
+  });
+  const [currentUser, setCurrentUser] = useState<User | null>(() => {
+    const saved = localStorage.getItem('currentUser');
+    return saved ? JSON.parse(saved) : null;
+  });
+
   const [inventory, setInventory] = useState<Product[]>(() => {
     const data = JSON.parse(localStorage.getItem('inventory') || '[]');
     // Migrate data if locationStocks doesn't exist
@@ -738,6 +865,7 @@ const App: React.FC = () => {
   const [isTeamMemberModalOpen, setIsTeamMemberModalOpen] = useState(false); // Renamed from isUserModalOpen
   const [isNotificationPageOpen, setIsNotificationPageOpen] = useState(false); // New state for notification page
   const [isPrintOptionsModalOpen, setIsPrintOptionsModalOpen] = useState(false); // New state for print options modal
+  const [isSignupModalOpen, setIsSignupModalOpen] = useState(false); // New state for signup modal
   const [scannerTarget, setScannerTarget] = useState<'search' | 'sku' | 'audit'>('search');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -780,6 +908,12 @@ const App: React.FC = () => {
 
   // Import/Export Refs
   const importInputRef = useRef<HTMLInputElement>(null);
+
+  // Auth effects
+  useEffect(() => {
+    localStorage.setItem('isLoggedIn', JSON.stringify(isLoggedIn));
+    localStorage.setItem('currentUser', JSON.stringify(currentUser));
+  }, [isLoggedIn, currentUser]);
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', settings.theme === 'dark');
@@ -824,6 +958,33 @@ const App: React.FC = () => {
     setLogs([]);
     setToast({ message: 'Activity logs cleared', type: 'info' });
   };
+
+  const handleLogin = useCallback((user: User) => {
+    setIsLoggedIn(true);
+    setCurrentUser(user);
+    // Add user to team if they don't already exist
+    setTeam(prevTeam => {
+      if (!prevTeam.some(u => u.id === user.id)) {
+        return [...prevTeam, user];
+      }
+      return prevTeam;
+    });
+    setToast({ message: `Welcome, ${user.name}!`, type: 'success' });
+  }, []);
+
+  const handleLogout = useCallback(() => {
+    setIsLoggedIn(false);
+    setCurrentUser(null);
+    localStorage.removeItem('isLoggedIn');
+    localStorage.removeItem('currentUser');
+    setToast({ message: 'Logged out successfully', type: 'info' });
+  }, []);
+
+  const handleSignup = useCallback((newUser: User) => {
+    setTeam(prevTeam => [...prevTeam, newUser]);
+    addLog(`New user signed up: ${newUser.name}`, 'add');
+    handleLogin(newUser); // Log in the new user immediately
+  }, [addLog, handleLogin]);
 
   const handleSaveProduct = (e: React.FormEvent) => {
     e.preventDefault();
@@ -1280,6 +1441,25 @@ const App: React.FC = () => {
     setNewPhoneNumber('');
   };
 
+  if (!isLoggedIn) {
+    return (
+      <div className="flex h-screen bg-slate-50 dark:bg-slate-950 overflow-hidden text-slate-900 dark:text-slate-100 transition-colors duration-300">
+        <LoginPage onLogin={handleLogin} onShowToast={setToast} onOpenSignupModal={() => setIsSignupModalOpen(true)} />
+        {toast && (
+          <div className="fixed bottom-8 left-1/2 -translate-x-1/2 bg-slate-900 dark:bg-white dark:text-slate-900 text-white px-6 py-3 rounded-full shadow-2xl animate-in slide-in-from-bottom-4 font-bold z-[200]">
+            {toast.message}
+          </div>
+        )}
+        {isSignupModalOpen && (
+          <SignupModal 
+            onSignup={handleSignup} 
+            onClose={() => setIsSignupModalOpen(false)} 
+            onShowToast={setToast} 
+          />
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen bg-slate-50 dark:bg-slate-950 overflow-hidden text-slate-900 dark:text-slate-100 transition-colors duration-300">
@@ -1322,6 +1502,22 @@ const App: React.FC = () => {
             <button onClick={() => setSettings(s => ({...s, theme: s.theme === 'dark' ? 'light' : 'dark'}))} className="p-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800">
               {settings.theme === 'dark' ? <Sun size={20}/> : <Moon size={20}/>}
             </button>
+            <div className="relative group">
+              <button className="flex items-center gap-2 p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all">
+                <UserIcon size={20} className="text-slate-600 dark:text-slate-300"/>
+                <span className="text-sm font-bold hidden sm:inline-block">{currentUser?.name || 'User'}</span>
+              </button>
+              <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-slate-800 border dark:border-slate-700 rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 transform origin-top-right scale-95 group-hover:scale-100">
+                <div className="p-2">
+                  <p className="text-sm font-semibold text-slate-800 dark:text-slate-200 truncate">{currentUser?.email}</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 capitalize">{currentUser?.role} Account</p>
+                </div>
+                <div className="border-t dark:border-slate-700 my-1"/>
+                <button onClick={handleLogout} className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md flex items-center gap-2">
+                  <LogOut size={16}/> Logout
+                </button>
+              </div>
+            </div>
           </div>
         </header>
 
@@ -1383,10 +1579,10 @@ const App: React.FC = () => {
               {/* Account Settings Section */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="bg-white dark:bg-slate-900 p-8 rounded-[2rem] border dark:border-slate-800 space-y-4">
-                  <h3 className="text-xs font-black uppercase tracking-widest text-slate-400">Account Security</h3>
+                  <h3 className="text-xs font-black uppercase tracking-widest text-slate-400">Change Email Address</h3>
                   <form onSubmit={handleChangeEmail} className="space-y-4">
                     <div className="space-y-1">
-                      <label htmlFor="newEmail" className="text-[10px] font-black uppercase text-slate-400">Change Email Address</label>
+                      <label htmlFor="newEmail" className="text-[10px] font-black uppercase text-slate-400">New Email Address</label>
                       <input 
                         id="newEmail"
                         type="email" 
@@ -1412,7 +1608,7 @@ const App: React.FC = () => {
                 </div>
 
                 <div className="bg-white dark:bg-slate-900 p-8 rounded-[2rem] border dark:border-slate-800 space-y-4">
-                  <h3 className="text-xs font-black uppercase tracking-widest text-slate-400">Password Management</h3>
+                  <h3 className="text-xs font-black uppercase tracking-widest text-slate-400">Change Password</h3>
                   <form onSubmit={handleChangePassword} className="space-y-4">
                     <div className="space-y-1">
                       <label htmlFor="currentPasswordForPassword" className="text-[10px] font-black uppercase text-slate-400">Current Password</label>
@@ -1452,10 +1648,10 @@ const App: React.FC = () => {
                 </div>
 
                 <div className="bg-white dark:bg-slate-900 p-8 rounded-[2rem] border dark:border-slate-800 space-y-4 md:col-span-2">
-                  <h3 className="text-xs font-black uppercase tracking-widest text-slate-400">Contact Information</h3>
+                  <h3 className="text-xs font-black uppercase tracking-widest text-slate-400">Update Phone Number</h3>
                   <form onSubmit={handleChangePhoneNumber} className="space-y-4">
                     <div className="space-y-1">
-                      <label htmlFor="newPhoneNumber" className="text-[10px] font-black uppercase text-slate-400">Update Phone Number</label>
+                      <label htmlFor="newPhoneNumber" className="text-[10px] font-black uppercase text-slate-400">New Phone Number</label>
                       <input 
                         id="newPhoneNumber"
                         type="tel" 
@@ -1740,7 +1936,7 @@ const App: React.FC = () => {
               </div>
               <div className="space-y-1">
                 <label htmlFor="transferAmount" className="text-[10px] font-black uppercase text-slate-400">Amount</label>
-                <input id="transferAmount" required type="number" min="1" max={Number(transferProduct.locationStocks[transferFrom]) || 0} className="w-full px-4 py-2 border rounded-xl dark:bg-slate-800 dark:border-slate-700 font-bold" value={transferAmount} onChange={e => setTransferAmount(parseInt(e.target.value) || 0)} />
+                <input id="transferAmount" required type="number" min="1" max={Number(transferProduct.locationStocks[transferFrom]) || 0} className="w-full px-4 py-2 border rounded-xl dark:bg-slate-800 dark:border-slate-700 outline-none text-right font-black" value={transferAmount} onChange={e => setTransferAmount(parseInt(e.target.value) || 0)} />
               </div>
               <button className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-blue-700 transition-all">Move Stock</button>
             </form>
