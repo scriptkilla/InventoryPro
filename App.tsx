@@ -9,7 +9,6 @@ import {
   Plus, 
   Trash2, 
   Edit3, 
-  BrainCircuit, 
   TrendingUp, 
   MapPin, 
   ChevronRight, 
@@ -24,7 +23,6 @@ import {
   AlertCircle,
   AlertTriangle,
   Info,
-  Sparkles,
   MapPinned,
   Store,
   DollarSign,
@@ -46,7 +44,6 @@ import {
   Moon,
   Sun,
   Camera,
-  Wand2,
   History,
   FileUp,
   AlertOctagon,
@@ -68,7 +65,6 @@ import {
   UserRoundPlus
 } from 'lucide-react';
 import { Product, Category, Section, AppSettings, ActivityLog, User, UserRole } from './types';
-import { geminiService } from './services/geminiService';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { BrowserMultiFormatReader } from '@zxing/browser';
 import * as XLSX from 'xlsx';
@@ -76,7 +72,8 @@ import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
 // @ts-ignore
 import JsBarcode from 'jsbarcode';
-import LoginPage from './LoginPage'; // Import the new login page component
+import LoginPage from './LoginPage';
+import SignupModal from './SignupModal'; // Import the new signup modal component
 
 // --- Constants ---
 
@@ -99,7 +96,6 @@ const DEFAULT_SETTINGS: AppSettings = {
   storeName: 'InventoryPro',
   currency: '$',
   defaultLowStockThreshold: 10,
-  enableAiFeatures: true,
   enableNotifications: true,
   theme: 'dark'
 };
@@ -178,7 +174,6 @@ const SidebarContent: React.FC<{ activeSection: Section, navigateTo: (s: Section
       <NavItem icon={<Tags size={20}/>} label="Categories" active={activeSection === 'categories'} onClick={() => navigateTo('categories')} />
       <NavItem icon={<MapPinned size={20}/>} label="Locations" active={activeSection === 'locations'} onClick={() => navigateTo('locations')} />
       <NavItem icon={<Printer size={20}/>} label="Print Center" active={activeSection === 'print'} onClick={() => navigateTo('print')} />
-      <NavItem icon={<BrainCircuit size={20}/>} label="AI Research" active={activeSection === 'ai-research'} onClick={() => navigateTo('ai-research')} />
       <div className="pt-4 mt-4 border-t border-slate-800"><NavItem icon={<Settings size={20}/>} label="Settings" active={activeSection === 'settings'} onClick={() => navigateTo('settings')} /></div>
     </div>
   </div>
@@ -389,10 +384,9 @@ const InventoryView: React.FC<{
   onAdd: () => void, 
   onEdit: (p: Product) => void, 
   onDelete: (id: string) => void, 
-  onResearch: (p: Product, type: 'price' | 'maps') => void,
   onTransfer: (p: Product) => void,
   settings: AppSettings
-}> = ({ inventory, onAdd, onEdit, onDelete, onResearch, onTransfer, settings }) => (
+}> = ({ inventory, onAdd, onEdit, onDelete, onTransfer, settings }) => (
   <div className="space-y-6 animate-in slide-in-from-bottom-4">
     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
       <div><h2 className="text-3xl font-black">Inventory</h2><p className="text-slate-500 dark:text-slate-400 font-medium">Manage and monitor stock levels</p></div>
@@ -424,7 +418,7 @@ const InventoryView: React.FC<{
                   <td className="px-6 py-4">{totalQty <= 0 ? <span className="flex items-center gap-1.5 text-red-500 text-[10px] font-black uppercase"><AlertCircle size={12}/>Out of Stock</span> : totalQty <= item.minStock ? <span className="flex items-center gap-1.5 text-amber-500 text-[10px] font-black uppercase"><AlertTriangle size={12}/>Low Stock</span> : <span className="flex items-center gap-1.5 text-emerald-500 text-[10px] font-black uppercase"><CheckCircle2 size={12}/>Optimal</span>}</td>
                   <td className="px-6 py-4 text-right font-black text-slate-900 dark:text-slate-100">{totalQty}</td>
                   <td className="px-6 py-4 text-right font-black text-slate-900 dark:text-slate-100">{settings.currency}{item.price.toFixed(2)}</td>
-                  <td className="px-6 py-4"><div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity"><button onClick={() => onTransfer(item)} className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 rounded-lg transition-all" title="Transfer Stock"><ArrowRightLeft size={18}/></button><button onClick={() => onResearch(item, 'price')} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-all" title="Market Price Analysis"><TrendingUp size={18}/></button><button onClick={() => onResearch(item, 'maps')} className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 rounded-lg transition-all" title="Find Suppliers"><MapPin size={18}/></button><button onClick={() => onEdit(item)} className="p-2 text-slate-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/30 rounded-lg transition-all" title="Edit"><Edit3 size={18}/></button><button onClick={() => onDelete(item.id)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-all" title="Delete"><Trash2 size={18}/></button></div></td>
+                  <td className="px-6 py-4"><div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity"><button onClick={() => onTransfer(item)} className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 rounded-lg transition-all" title="Transfer Stock"><ArrowRightLeft size={18}/></button><button onClick={() => onEdit(item)} className="p-2 text-slate-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/30 rounded-lg transition-all" title="Edit"><Edit3 size={18}/></button><button onClick={() => onDelete(item.id)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-all" title="Delete"><Trash2 size={18}/></button></div></td>
                 </tr>
               );
             }) : <tr><td colSpan={6} className="px-6 py-20 text-center text-slate-400 font-bold uppercase tracking-widest text-xs">No products found</td></tr>}
@@ -510,80 +504,6 @@ const LocationsView: React.FC<{
         );
       })}
     </div>
-  </div>
-);
-
-const AiResearchView: React.FC<{ 
-  analysis: any, 
-  isLoading: boolean, 
-  onNavigate: (s: Section) => void 
-}> = ({ analysis, isLoading, onNavigate }) => (
-  <div className="space-y-6 animate-in slide-in-from-bottom-4">
-    <div className="flex items-center gap-4">
-      <button onClick={() => onNavigate('inventory')} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors text-slate-400"><ChevronLeft size={24}/></button>
-      <div><h2 className="text-3xl font-black">Market Intelligence</h2><p className="text-slate-500 dark:text-slate-400 font-medium">Real-time AI research and sourcing</p></div>
-    </div>
-    
-    {isLoading ? (
-      <div className="bg-white dark:bg-slate-900 p-20 rounded-[3rem] border dark:border-slate-800 flex flex-col items-center justify-center text-center space-y-6">
-        <div className="relative">
-          <Loader2 className="animate-spin text-blue-600" size={60}/>
-          <span className="absolute -top-2 -right-2 text-amber-500 animate-bounce">
-            <Sparkles size={24}/>
-          </span>
-        </div>
-        <div>
-          <h3 className="text-xl font-black italic">Consulting the Oracle...</h3>
-          <p className="text-slate-400 mt-2 font-medium max-w-xs">Our AI is currently scouring global markets and local maps for you.</p>
-        </div>
-      </div>
-    ) : analysis ? (
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2 space-y-6">
-          <div className="bg-white dark:bg-slate-900 p-10 rounded-[3rem] border dark:border-slate-800 shadow-sm relative overflow-hidden">
-            <div className="absolute top-0 right-0 p-8 text-blue-100 dark:text-blue-900/20 transform translate-x-4 -translate-y-4"><BrainCircuit size={120}/></div>
-            <div className="relative">
-              <div className="flex items-center gap-2 mb-6"><Sparkles size={18} className="text-blue-600"/><span className="text-[10px] font-black uppercase tracking-widest text-blue-600">AI Summary</span></div>
-              <div className="prose dark:prose-invert max-w-none"><p className="text-lg font-bold leading-relaxed">{analysis.text}</p></div>
-            </div>
-          </div>
-          
-          <div className="bg-slate-900 p-10 rounded-[3rem] text-white space-y-6">
-             <div className="flex items-center gap-2"><Globe className="text-emerald-400" size={18}/><span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Information Sources</span></div>
-             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-               {analysis.sources?.map((source: any, i: number) => {
-                 const uri = source.web?.uri || source.maps?.uri;
-                 const title = source.web?.title || source.maps?.title || 'Grounding Source';
-                 if (!uri) return null;
-                 return (
-                   <a key={i} href={uri} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 p-4 bg-slate-800 hover:bg-slate-700 transition-all rounded-2xl group">
-                     <div className="w-8 h-8 rounded-lg bg-slate-700 flex items-center justify-center text-slate-400 group-hover:bg-blue-600 group-hover:text-white transition-colors"><Search size={14}/></div>
-                     <span className="text-xs font-bold truncate">{title}</span>
-                     <ChevronRight size={14} className="ml-auto text-slate-600"/>
-                   </a>
-                 );
-               })}
-               {(!analysis.sources || analysis.sources.length === 0) && <p className="text-slate-500 text-xs font-bold uppercase italic p-4">Direct AI synthesis from knowledge base</p>}
-             </div>
-          </div>
-        </div>
-        
-        <div className="space-y-6">
-          <div className="bg-blue-600 p-8 rounded-[3rem] text-white shadow-xl shadow-blue-500/20">
-            <h4 className="text-lg font-black mb-4 flex items-center gap-2"><TrendingUp size={20}/> Insights</h4>
-            <ul className="space-y-4">
-              <li className="flex gap-3 text-sm"><CheckCircle2 className="text-blue-200 shrink-0" size={18}/><span>Real-time price monitoring active</span></li>
-              <li className="flex gap-3 text-sm"><CheckCircle2 className="text-blue-200 shrink-0" size={18}/><span>Competitive analysis generated</span></li>
-              <li className="flex gap-3 text-sm"><CheckCircle2 className="text-blue-200 shrink-0" size={18}/><span>Supplier credibility checked</span></li>
-            </ul>
-          </div>
-        </div>
-      </div>
-    ) : (
-      <div className="bg-white dark:bg-slate-900 p-20 rounded-[3rem] border dark:border-slate-800 text-center">
-        <p className="text-slate-400 font-bold uppercase tracking-widest text-sm">Select a product from inventory to begin research</p>
-      </div>
-    )}
   </div>
 );
 
@@ -707,119 +627,6 @@ const ScannerModal: React.FC<{
   );
 };
 
-// --- Signup Modal Component ---
-interface SignupModalProps {
-  onSignup: (user: User) => void;
-  onClose: () => void;
-  onShowToast: (toast: { message: string, type: 'success' | 'error' | 'info' }) => void;
-}
-
-const SignupModal: React.FC<SignupModalProps> = ({ onSignup, onClose, onShowToast }) => {
-  const [signupName, setSignupName] = useState('');
-  const [signupEmail, setSignupEmail] = useState('');
-  const [signupPassword, setSignupPassword] = useState('');
-  const [signupConfirmPassword, setSignupConfirmPassword] = useState('');
-
-  const handleSignupSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!signupName || !signupEmail || !signupPassword || !signupConfirmPassword) {
-      onShowToast({ message: 'All fields are required', type: 'error' });
-      return;
-    }
-    if (signupPassword !== signupConfirmPassword) {
-      onShowToast({ message: 'Passwords do not match', type: 'error' });
-      return;
-    }
-    if (signupPassword.length < 6) {
-      onShowToast({ message: 'Password must be at least 6 characters long', type: 'error' });
-      return;
-    }
-
-    const colors = ['bg-red-500', 'bg-blue-500', 'bg-emerald-500', 'bg-purple-500', 'bg-amber-500', 'bg-pink-500'];
-    const newUser: User = {
-      id: `user-${Date.now()}`,
-      name: signupName,
-      email: signupEmail,
-      role: 'viewer', // Default role for new signups
-      avatarColor: colors[Math.floor(Math.random() * colors.length)]
-    };
-    onSignup(newUser);
-    onClose();
-    onShowToast({ message: `Account created for ${signupName}! You are now logged in.`, type: 'success' });
-    // Reset form fields
-    setSignupName('');
-    setSignupEmail('');
-    setSignupPassword('');
-    setSignupConfirmPassword('');
-  };
-
-  return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
-      <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl w-full max-w-sm sm:max-w-md p-4 sm:p-6 lg:p-8 border dark:border-slate-800 space-y-6 animate-in zoom-in-95">
-        <div className="flex justify-between items-center">
-          <h3 className="text-xl font-black flex items-center gap-2">
-            <UserRoundPlus size={24} className="text-blue-600" /> Create New Account
-          </h3>
-          <button onClick={onClose} className="p-1 text-slate-400 hover:text-slate-600"><X/></button>
-        </div>
-        <form onSubmit={handleSignupSubmit} className="space-y-4">
-          <div className="space-y-1">
-            <label htmlFor="signupName" className="text-[10px] font-black uppercase text-slate-400">Full Name</label>
-            <input 
-              id="signupName"
-              type="text" 
-              className="w-full px-4 py-3 border rounded-xl dark:bg-slate-800 dark:border-slate-700 font-bold" 
-              placeholder="e.g. Jane Doe"
-              value={signupName}
-              onChange={e => setSignupName(e.target.value)}
-              required
-            />
-          </div>
-          <div className="space-y-1">
-            <label htmlFor="signupEmail" className="text-[10px] font-black uppercase text-slate-400">Email Address</label>
-            <input 
-              id="signupEmail"
-              type="email"
-              className="w-full px-4 py-3 border rounded-xl dark:bg-slate-800 dark:border-slate-700 font-bold" 
-              placeholder="jane.doe@example.com"
-              value={signupEmail}
-              onChange={e => setSignupEmail(e.target.value)}
-              required
-            />
-          </div>
-          <div className="space-y-1">
-            <label htmlFor="signupPassword" className="text-[10px] font-black uppercase text-slate-400">Password</label>
-            <input 
-              id="signupPassword"
-              type="password"
-              className="w-full px-4 py-3 border rounded-xl dark:bg-slate-800 dark:border-slate-700 font-bold" 
-              placeholder="••••••••"
-              value={signupPassword}
-              onChange={e => setSignupPassword(e.target.value)}
-              required
-            />
-          </div>
-          <div className="space-y-1">
-            <label htmlFor="signupConfirmPassword" className="text-[10px] font-black uppercase text-slate-400">Confirm Password</label>
-            <input 
-              id="signupConfirmPassword"
-              type="password"
-              className="w-full px-4 py-3 border rounded-xl dark:bg-slate-800 dark:border-slate-700 font-bold" 
-              placeholder="••••••••"
-              value={signupConfirmPassword}
-              onChange={e => setSignupConfirmPassword(e.target.value)}
-              required
-            />
-          </div>
-          <button type="submit" className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-blue-700 transition-all shadow-xl shadow-blue-500/20">
-            Create Account
-          </button>
-        </form>
-      </div>
-    </div>
-  );
-};
-
 // --- App Component ---
 
 const App: React.FC = () => {
@@ -862,19 +669,17 @@ const App: React.FC = () => {
   const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
   const [isClearAllModalOpen, setIsClearAllModalOpen] = useState(false);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
-  const [isTeamMemberModalOpen, setIsTeamMemberModalOpen] = useState(false); // Renamed from isUserModalOpen
-  const [isNotificationPageOpen, setIsNotificationPageOpen] = useState(false); // New state for notification page
-  const [isPrintOptionsModalOpen, setIsPrintOptionsModalOpen] = useState(false); // New state for print options modal
-  const [isSignupModalOpen, setIsSignupModalOpen] = useState(false); // New state for signup modal
+  const [isTeamMemberModalOpen, setIsTeamMemberModalOpen] = useState(false);
+  const [isNotificationPageOpen, setIsNotificationPageOpen] = useState(false);
+  const [isPrintOptionsModalOpen, setIsPrintOptionsModalOpen] = useState(false);
+  const [isSignupModalOpen, setIsSignupModalOpen] = useState(false);
   const [scannerTarget, setScannerTarget] = useState<'search' | 'sku' | 'audit'>('search');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [transferProduct, setTransferProduct] = useState<Product | null>(null);
-  const [productToPrint, setProductToPrint] = useState<Product | null>(null); // New state for product to print
+  const [productToPrint, setProductToPrint] = useState<Product | null>(null);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
-  const [editingUser, setEditingUser] = useState<User | null>(null); // New state for editing user
-  const [isLoading, setIsLoading] = useState(false);
-  const [aiAnalysis, setAiAnalysis] = useState<any>(null);
+  const [editingUser, setEditingUser] = useState<User | null>(null);
   const [toast, setToast] = useState<{ message: string, type: 'success' | 'error' | 'info' } | null>(null);
 
   // Modal Form State
@@ -1091,51 +896,6 @@ const App: React.FC = () => {
     setModalSku(`${prefix}-${random}`);
   };
 
-  const handleMagicEntry = async () => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'image/*';
-    input.onchange = async (e) => {
-      const file = (e.target as HTMLInputElement).files?.[0];
-      if (!file) return;
-      setIsLoading(true);
-      try {
-        const reader = new FileReader();
-        reader.onload = async () => {
-          const base64 = (reader.result as string).split(',')[1];
-          const result = await geminiService.analyzeProductImage(base64);
-          if (result.name) setModalName(result.name);
-          if (result.category) setModalCategory(result.category);
-          if (result.price) setModalPrice(result.price);
-          if (result.description) setModalDescription(result.description);
-          if (result.suggestedSku) setModalSku(result.suggestedSku);
-          setModalImage(reader.result as string);
-          setToast({ message: 'AI Analysis complete', type: 'success' });
-        };
-        reader.readAsDataURL(file);
-      } catch (err) {
-        setToast({ message: 'AI Analysis failed', type: 'error' });
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    input.click();
-  };
-
-  const generateAIDescription = async () => {
-    if (!modalName) return setToast({ message: 'Enter name first', type: 'info' });
-    setIsLoading(true);
-    try {
-      const desc = await geminiService.generateProductDescription(modalName, modalCategory);
-      setModalDescription(desc);
-      setToast({ message: 'Description generated', type: 'success' });
-    } catch {
-      setToast({ message: 'Generation failed', type: 'error' });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   const handleScanResult = (res: string, keepOpen?: boolean) => {
     if (!keepOpen) setIsScannerOpen(false);
     
@@ -1161,7 +921,7 @@ const App: React.FC = () => {
           setIsModalOpen(true);
         } else {
           setToast({ message: `Item Detected: ${p.name}`, type: 'info' });
-          addLog(`Audit Scan: ${p.name} (${p.sku}) identified`, 'ai');
+          addLog(`Audit Scan: ${p.name} (${p.sku}) identified`, 'update'); // Changed type from 'ai' to 'update'
         }
       } else {
         setToast({ message: 'SKU not found in inventory', type: 'error' });
@@ -1268,7 +1028,8 @@ const App: React.FC = () => {
     downloadAnchorNode.setAttribute("download", `${settings.storeName}_Inventory.json`);
     document.body.appendChild(downloadAnchorNode);
     downloadAnchorNode.click();
-    downloadAnchorNode.remove();
+    // Fix: 'link' is not defined, use 'downloadAnchorNode' instead.
+    document.body.removeChild(downloadAnchorNode);
     setToast({ message: 'JSON exported', type: 'success' });
   };
 
@@ -1524,8 +1285,7 @@ const App: React.FC = () => {
         <main className="flex-1 overflow-y-auto p-4 lg:p-8 custom-scrollbar">
           <div className="max-w-7xl mx-auto">
             {activeSection === 'dashboard' && <DashboardView stats={stats} inventory={inventory} settings={settings} logs={logs} />}
-            {activeSection === 'inventory' && <InventoryView inventory={filteredInventory} settings={settings} onAdd={() => {setEditingProduct(null); setModalSku(''); setModalName(''); setModalImage(null); setModalDescription(''); setModalLocationStocks({}); setIsModalOpen(true);}} onEdit={p => {setEditingProduct(p); setModalSku(p.sku); setModalName(p.name); setModalCategory(p.category); setModalPrice(p.price); setModalLocationStocks(p.locationStocks || {}); setModalDescription(p.description || ''); setModalImage(p.image || null); setIsModalOpen(true);}} onDelete={id => setInventory(prev => prev.filter(i => i.id !== id))} onResearch={async (p, t) => { setIsLoading(true); setActiveSection('ai-research'); try { setAiAnalysis(t === 'price' ? await geminiService.getMarketPrice(p.name) : await geminiService.findSuppliers(p.name, { lat: 37, lng: -122 })); } finally { setIsLoading(false); } }} onTransfer={(p) => { setTransferProduct(p); const hasStock = Object.entries(p.locationStocks).filter(([_, q]) => (Number(q) || 0) > 0); setTransferFrom(hasStock[0]?.[0] || locations[0]); setTransferTo(locations.find(l => l !== (hasStock[0]?.[0] || locations[0])) || ''); setTransferAmount(1); setIsTransferModalOpen(true); }} />}
-            {activeSection === 'ai-research' && <AiResearchView analysis={aiAnalysis} isLoading={isLoading} onNavigate={setActiveSection} />}
+            {activeSection === 'inventory' && <InventoryView inventory={filteredInventory} settings={settings} onAdd={() => {setEditingProduct(null); setModalSku(''); setModalName(''); setModalImage(null); setModalDescription(''); setModalLocationStocks({}); setIsModalOpen(true);}} onEdit={p => {setEditingProduct(p); setModalSku(p.sku); setModalName(p.name); setModalCategory(p.category); setModalPrice(p.price); setModalLocationStocks(p.locationStocks || {}); setModalDescription(p.description || ''); setModalImage(p.image || null); setIsModalOpen(true);}} onDelete={id => setInventory(prev => prev.filter(i => i.id !== id))} onTransfer={(p) => { setTransferProduct(p); const hasStock = Object.entries(p.locationStocks).filter(([_, q]) => (Number(q) || 0) > 0); setTransferFrom(hasStock[0]?.[0] || locations[0]); setTransferTo(locations.find(l => l !== (hasStock[0]?.[0] || locations[0])) || ''); setTransferAmount(1); setIsTransferModalOpen(true); }} />}
             {activeSection === 'categories' && <CategoriesView categories={categories} inventory={inventory} onAdd={() => setIsCategoryModalOpen(true)} onEdit={c => {setEditingCategory(c); setIsCategoryModalOpen(true);}} onDelete={id => setCategories(prev => prev.filter(c => c.id !== c.id))} />}
             {activeSection === 'locations' && <LocationsView locations={locations} inventory={inventory} onAdd={() => setIsLocationModalOpen(true)} onDelete={l => setLocations(prev => prev.filter(loc => loc !== l))} />}
             {activeSection === 'settings' && <div className="space-y-8 animate-in slide-in-from-bottom-4 max-w-4xl mx-auto">
@@ -1766,16 +1526,11 @@ const App: React.FC = () => {
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
           <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-sm sm:max-w-md lg:max-w-lg p-4 sm:p-6 lg:p-8 border dark:border-slate-800 overflow-y-auto max-h-[90vh] relative custom-scrollbar">
-            {isLoading && <div className="absolute inset-0 bg-white/50 dark:bg-slate-900/50 backdrop-blur-[1px] z-10 flex items-center justify-center"><Loader2 className="animate-spin text-blue-600" size={40}/></div>}
+            {/* Removed isLoading overlay as there are no AI-related loading states here anymore */}
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-xl font-bold">{editingProduct ? 'Edit' : 'Add'} Product</h3>
               <div className="flex items-center gap-2">
-                {!editingProduct && (
-                   <button type="button" onClick={handleMagicEntry} className="p-2 text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/30 rounded-xl flex items-center gap-1.5 transition-colors" title="Analyze with AI">
-                    <Sparkles size={18}/>
-                    <span className="text-xs font-black uppercase hidden sm:inline">Magic Entry</span>
-                  </button>
-                )}
+                {/* Removed Magic Entry button */}
                 <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600 p-1"><X/></button>
               </div>
             </div>
@@ -1840,9 +1595,7 @@ const App: React.FC = () => {
               <div className="space-y-1">
                 <div className="flex justify-between items-center mb-1">
                   <label htmlFor="modalDescription" className="text-[10px] font-black uppercase text-slate-400">Description</label>
-                  <button type="button" onClick={generateAIDescription} className="text-[10px] font-black uppercase text-blue-600 hover:text-blue-700 flex items-center gap-1">
-                    <Wand2 size={12}/> AI Generate
-                  </button>
+                  {/* Removed AI Generate button */}
                 </div>
                 <textarea id="modalDescription" className="w-full px-4 py-2 border rounded-xl dark:bg-slate-800 dark:border-slate-700 outline-none min-h-[80px]" value={modalDescription} onChange={e => setModalDescription(e.target.value)} />
               </div>
@@ -1893,9 +1646,9 @@ const App: React.FC = () => {
                   value={newUserRole}
                   onChange={e => setNewUserRole(e.target.value as UserRole)}
                 >
-                  <option value="viewer">Viewer (Read Only)</option>
-                  <option value="editor">Editor (Can edit stock)</option>
-                  <option value="admin">Admin (Full Control)</option>
+                  <option value="viewer">Viewer</option>
+                  <option value="editor">Editor</option>
+                  <option value="admin">Admin</option>
                 </select>
               </div>
               <button className="w-full py-4 bg-purple-600 text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-purple-700 transition-all shadow-xl shadow-purple-500/20">
