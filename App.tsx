@@ -181,6 +181,145 @@ const SidebarContent: React.FC<{ activeSection: Section, navigateTo: (s: Section
 
 // --- View Sub-Components ---
 
+const NotificationPage: React.FC<{
+  logs: ActivityLog[];
+  onClose: () => void;
+  onClearLogs: () => void;
+  settings: AppSettings;
+  stats: any;
+}> = ({ logs, onClose, onClearLogs, settings, stats }) => {
+  return (
+    <div className="fixed inset-0 bg-black/90 backdrop-blur-xl z-[200] flex flex-col items-center justify-center p-4">
+      <div className="w-full max-w-2xl h-full bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl border dark:border-slate-800 flex flex-col p-6 sm:p-8 lg:p-10">
+        <div className="flex justify-between items-center mb-6 flex-shrink-0">
+          <h3 className="text-2xl font-black flex items-center gap-3">
+            <Bell size={28} className="text-blue-600" /> Activity Log
+          </h3>
+          <button onClick={onClose} className="p-2 bg-white/10 dark:bg-slate-800 rounded-full hover:bg-white/20 dark:hover:bg-slate-700 transition-colors">
+            <X size={24} />
+          </button>
+        </div>
+
+        <div className="space-y-4 mb-6 flex-shrink-0">
+          {settings.enableNotifications && (stats.lowStock > 0 || stats.outOfStock > 0) && (
+            <div className="bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-900 rounded-2xl p-4 flex items-center gap-4">
+              <AlertTriangle size={24} className="text-amber-500 flex-shrink-0" />
+              <div>
+                <p className="font-bold text-amber-800 dark:text-amber-400">Inventory Alert!</p>
+                <p className="text-sm text-amber-700 dark:text-amber-300">You have {stats.lowStock} items low on stock and {stats.outOfStock} items out of stock.</p>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="flex-1 overflow-y-auto custom-scrollbar space-y-4">
+          {logs.length > 0 ? (
+            logs.map((log) => (
+              <div key={log.id} className="flex items-start gap-4 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl">
+                <div className={`mt-1.5 w-3 h-3 rounded-full flex-shrink-0 ${
+                  log.type === 'add' ? 'bg-emerald-500' : 
+                  log.type === 'delete' ? 'bg-red-500' : 
+                  log.type === 'update' ? 'bg-blue-500' : 
+                  'bg-purple-500'
+                }`} />
+                <div>
+                  <p className="font-bold text-slate-900 dark:text-slate-100 leading-tight">{log.text}</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{new Date(log.timestamp).toLocaleString()}</p>
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="text-center py-20 text-slate-400 font-bold uppercase tracking-widest text-xs">
+              No recent activity
+            </div>
+          )}
+        </div>
+
+        <div className="mt-6 flex-shrink-0">
+          <button onClick={onClearLogs} className="w-full py-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-red-100 dark:hover:bg-red-900/30 transition-all">
+            Clear All Activity Logs
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+
+const PrintOptionsModal: React.FC<{
+  product: Product;
+  onClose: () => void;
+}> = ({ product, onClose }) => {
+  const [copies, setCopies] = useState(1);
+  const [includeName, setIncludeName] = useState(true);
+  const [includeSku, setIncludeSku] = useState(true);
+  const [includeBarcode, setIncludeBarcode] = useState(true);
+
+  const handlePrint = () => {
+    // In a real application, this would generate a specific print layout
+    // based on selected options and copies. For this example, we'll
+    // just trigger the browser's print dialog.
+    // Future enhancement: dynamically create an iframe or new window with
+    // only the selected content and then print that.
+    window.print(); 
+    onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
+      <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl w-full max-w-sm sm:max-w-md p-4 sm:p-6 lg:p-8 border dark:border-slate-800 space-y-6 animate-in zoom-in-95">
+        <div className="flex justify-between items-center">
+          <h3 className="text-xl font-black">Print Options for {product.name}</h3>
+          <button onClick={onClose} className="p-1 text-slate-400 hover:text-slate-600"><X/></button>
+        </div>
+
+        <div className="space-y-4">
+          <div className="w-full h-auto bg-slate-100 dark:bg-slate-800 rounded-2xl overflow-hidden flex-shrink-0 flex items-center justify-center border dark:border-slate-700 aspect-video">
+            {product.image ? <img src={product.image} className="w-full h-full object-cover" alt={product.name} /> : <ImageIcon size={48} className="text-slate-300"/>}
+          </div>
+          <p className="font-bold text-lg">{product.name}</p>
+          <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">{product.sku}</p>
+          {product.sku && <Barcode value={product.sku} className="border dark:border-slate-700" />}
+        </div>
+
+        <div className="space-y-4 pt-4 border-t dark:border-slate-800">
+          <div className="space-y-1">
+            <label className="text-[10px] font-black uppercase text-slate-400">Number of Copies</label>
+            <input 
+              type="number" 
+              min="1" 
+              value={copies} 
+              onChange={(e) => setCopies(parseInt(e.target.value) || 1)} 
+              className="w-full px-4 py-2 border rounded-xl dark:bg-slate-800 dark:border-slate-700 outline-none font-bold"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <p className="text-[10px] font-black uppercase text-slate-400">Include in Printout</p>
+            <label className="flex items-center gap-2 text-sm font-medium">
+              <input type="checkbox" checked={includeName} onChange={() => setIncludeName(!includeName)} className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 dark:bg-slate-700 dark:border-slate-600" />
+              Product Name
+            </label>
+            <label className="flex items-center gap-2 text-sm font-medium">
+              <input type="checkbox" checked={includeSku} onChange={() => setIncludeSku(!includeSku)} className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 dark:bg-slate-700 dark:border-slate-600" />
+              SKU
+            </label>
+            <label className="flex items-center gap-2 text-sm font-medium">
+              <input type="checkbox" checked={includeBarcode} onChange={() => setIncludeBarcode(!includeBarcode)} className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 dark:bg-slate-700 dark:border-slate-600" />
+              Barcode
+            </label>
+          </div>
+        </div>
+
+        <button onClick={handlePrint} className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-blue-700 transition-all shadow-xl shadow-blue-500/20">
+          Print
+        </button>
+      </div>
+    </div>
+  );
+};
+
+
 const DashboardView: React.FC<{ stats: any, inventory: Product[], settings: AppSettings, logs: ActivityLog[] }> = ({ stats, inventory, settings, logs }) => {
   const chartData = useMemo(() => {
     return inventory.slice(0, 8).map(item => ({
@@ -515,7 +654,7 @@ const ScannerModal: React.FC<{
   };
 
   return (
-    <div className="fixed inset-0 bg-black/90 backdrop-blur-xl z-[200] flex flex-col items-center justify-center p-6">
+    <div className="fixed inset-0 bg-black/90 backdrop-blur-xl z-[200] flex flex-col items-center justify-center p-4">
       <div className="w-full max-w-md space-y-6">
         <div className="flex justify-between items-center text-white">
           <div className="flex items-center gap-3">
@@ -591,12 +730,16 @@ const App: React.FC = () => {
   const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
   const [isClearAllModalOpen, setIsClearAllModalOpen] = useState(false);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
-  const [isUserModalOpen, setIsUserModalOpen] = useState(false);
+  const [isTeamMemberModalOpen, setIsTeamMemberModalOpen] = useState(false); // Renamed from isUserModalOpen
+  const [isNotificationPageOpen, setIsNotificationPageOpen] = useState(false); // New state for notification page
+  const [isPrintOptionsModalOpen, setIsPrintOptionsModalOpen] = useState(false); // New state for print options modal
   const [scannerTarget, setScannerTarget] = useState<'search' | 'sku' | 'audit'>('search');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [transferProduct, setTransferProduct] = useState<Product | null>(null);
+  const [productToPrint, setProductToPrint] = useState<Product | null>(null); // New state for product to print
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
+  const [editingUser, setEditingUser] = useState<User | null>(null); // New state for editing user
   const [isLoading, setIsLoading] = useState(false);
   const [aiAnalysis, setAiAnalysis] = useState<any>(null);
   const [toast, setToast] = useState<{ message: string, type: 'success' | 'error' | 'info' } | null>(null);
@@ -611,7 +754,7 @@ const App: React.FC = () => {
   const [modalMinStock, setModalMinStock] = useState(5);
   const [modalImage, setModalImage] = useState<string | null>(null);
 
-  // User Modal State
+  // User Modal State (reused for add/edit)
   const [newUserName, setNewUserName] = useState('');
   const [newUserEmail, setNewUserEmail] = useState('');
   const [newUserRole, setNewUserRole] = useState<UserRole>('viewer');
@@ -663,6 +806,11 @@ const App: React.FC = () => {
     setLogs(prev => [{ id: Date.now().toString(), text, timestamp: Date.now(), type }, ...prev].slice(0, 50));
   };
 
+  const clearLogs = () => {
+    setLogs([]);
+    setToast({ message: 'Activity logs cleared', type: 'info' });
+  };
+
   const handleSaveProduct = (e: React.FormEvent) => {
     e.preventDefault();
     const product: Product = {
@@ -688,22 +836,36 @@ const App: React.FC = () => {
     setToast({ message: 'Saved successfully', type: 'success' });
   };
 
-  const handleAddUser = (e: React.FormEvent) => {
+  const handleAddOrEditTeamMember = (e: React.FormEvent) => {
     e.preventDefault();
-    const colors = ['bg-red-500', 'bg-blue-500', 'bg-emerald-500', 'bg-purple-500', 'bg-amber-500', 'bg-pink-500'];
-    const newUser: User = {
-      id: Date.now().toString(),
-      name: newUserName,
-      email: newUserEmail,
-      role: newUserRole,
-      avatarColor: colors[Math.floor(Math.random() * colors.length)]
-    };
-    setTeam(prev => [...prev, newUser]);
-    addLog(`Added team member: ${newUserName}`, 'update');
-    setIsUserModalOpen(false);
+    if (editingUser) {
+      // Edit existing user
+      setTeam(prev => prev.map(u => 
+        u.id === editingUser.id 
+          ? { ...u, name: newUserName, email: newUserEmail, role: newUserRole } 
+          : u
+      ));
+      addLog(`Updated team member: ${newUserName}`, 'update');
+      setToast({ message: 'Team member updated', type: 'success' });
+    } else {
+      // Add new user
+      const colors = ['bg-red-500', 'bg-blue-500', 'bg-emerald-500', 'bg-purple-500', 'bg-amber-500', 'bg-pink-500'];
+      const newUser: User = {
+        id: Date.now().toString(),
+        name: newUserName,
+        email: newUserEmail,
+        role: newUserRole,
+        avatarColor: colors[Math.floor(Math.random() * colors.length)]
+      };
+      setTeam(prev => [...prev, newUser]);
+      addLog(`Added team member: ${newUserName}`, 'update');
+      setToast({ message: 'Team member added', type: 'success' });
+    }
+    setIsTeamMemberModalOpen(false);
+    setEditingUser(null);
     setNewUserName('');
     setNewUserEmail('');
-    setToast({ message: 'Team member added', type: 'success' });
+    setNewUserRole('viewer');
   };
 
   const handleRemoveUser = (id: string) => {
@@ -719,6 +881,7 @@ const App: React.FC = () => {
 
   const handleUpdateUserRole = (id: string, role: UserRole) => {
     setTeam(prev => prev.map(u => u.id === id ? { ...u, role } : u));
+    addLog(`Updated role for user: ${team.find(u => u.id === id)?.name} to ${role}`, 'update');
     setToast({ message: 'Role updated', type: 'success' });
   };
 
@@ -891,7 +1054,7 @@ const App: React.FC = () => {
     doc.setTextColor(100);
     doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, 30);
     
-    const tableColumn = ["SKU", "Name", "Category", "Price", "Min Stock", "Total", "Description", "Location Stocks"];
+    const tableColumn = ["SKU", "Name", "Category", "Price", "Min Stock", "Total", "Description", "Location Stocks", "Image (Base64)"];
     const tableRows = inventory.map(item => [
       item.sku,
       item.name,
@@ -900,7 +1063,8 @@ const App: React.FC = () => {
       item.minStock.toString(),
       getTotalQty(item.locationStocks).toString(),
       item.description || '-',
-      Object.entries(item.locationStocks).map(([l, q]) => `${l}: ${q}`).join(', ')
+      Object.entries(item.locationStocks).map(([l, q]) => `${l}: ${q}`).join(', '),
+      item.image || '-'
     ]);
 
     (doc as any).autoTable({
@@ -911,8 +1075,9 @@ const App: React.FC = () => {
       headStyles: { fillColor: [59, 130, 246], textColor: [255, 255, 255], fontSize: 9 },
       bodyStyles: { fontSize: 8 },
       columnStyles: {
-        6: { cellWidth: 40 }, // Description
-        7: { cellWidth: 50 }  // Location stocks
+        6: { cellWidth: 30 }, // Description
+        7: { cellWidth: 40 },  // Location stocks
+        8: { cellWidth: 50 }   // Image
       }
     });
 
@@ -1084,9 +1249,9 @@ const App: React.FC = () => {
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <button className="relative p-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-blue-600 transition-all">
+            <button onClick={() => setIsNotificationPageOpen(true)} className="relative p-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-blue-600 transition-all">
               <Bell size={20} />
-              {(stats.lowStock > 0 || stats.outOfStock > 0) && (
+              {(stats.lowStock > 0 || stats.outOfStock > 0) && settings.enableNotifications && (
                 <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-red-500 rounded-full border-2 border-white dark:border-slate-900" />
               )}
             </button>
@@ -1104,9 +1269,9 @@ const App: React.FC = () => {
             {activeSection === 'dashboard' && <DashboardView stats={stats} inventory={inventory} settings={settings} logs={logs} />}
             {activeSection === 'inventory' && <InventoryView inventory={filteredInventory} settings={settings} onAdd={() => {setEditingProduct(null); setModalSku(''); setModalName(''); setModalImage(null); setModalDescription(''); setModalLocationStocks({}); setIsModalOpen(true);}} onEdit={p => {setEditingProduct(p); setModalSku(p.sku); setModalName(p.name); setModalCategory(p.category); setModalPrice(p.price); setModalLocationStocks(p.locationStocks || {}); setModalDescription(p.description || ''); setModalImage(p.image || null); setIsModalOpen(true);}} onDelete={id => setInventory(prev => prev.filter(i => i.id !== id))} onResearch={async (p, t) => { setIsLoading(true); setActiveSection('ai-research'); try { setAiAnalysis(t === 'price' ? await geminiService.getMarketPrice(p.name) : await geminiService.findSuppliers(p.name, { lat: 37, lng: -122 })); } finally { setIsLoading(false); } }} onTransfer={(p) => { setTransferProduct(p); const hasStock = Object.entries(p.locationStocks).filter(([_, q]) => (Number(q) || 0) > 0); setTransferFrom(hasStock[0]?.[0] || locations[0]); setTransferTo(locations.find(l => l !== (hasStock[0]?.[0] || locations[0])) || ''); setTransferAmount(1); setIsTransferModalOpen(true); }} />}
             {activeSection === 'ai-research' && <AiResearchView analysis={aiAnalysis} isLoading={isLoading} onNavigate={setActiveSection} />}
-            {activeSection === 'categories' && <CategoriesView categories={categories} inventory={inventory} onAdd={() => setIsCategoryModalOpen(true)} onEdit={c => {setEditingCategory(c); setIsCategoryModalOpen(true);}} onDelete={id => setCategories(prev => prev.filter(c => c.id !== id))} />}
+            {activeSection === 'categories' && <CategoriesView categories={categories} inventory={inventory} onAdd={() => setIsCategoryModalOpen(true)} onEdit={c => {setEditingCategory(c); setIsCategoryModalOpen(true);}} onDelete={id => setCategories(prev => prev.filter(c => c.id !== c.id))} />}
             {activeSection === 'locations' && <LocationsView locations={locations} inventory={inventory} onAdd={() => setIsLocationModalOpen(true)} onDelete={l => setLocations(prev => prev.filter(loc => loc !== l))} />}
-            {activeSection === 'settings' && <div className="space-y-8 animate-in slide-in-from-bottom-4 max-w-4xl">
+            {activeSection === 'settings' && <div className="space-y-8 animate-in slide-in-from-bottom-4 max-w-4xl mx-auto">
               <div className="flex justify-between items-end">
                 <div><h2 className="text-3xl font-black">Settings</h2><p className="text-slate-500 dark:text-slate-400 font-medium">Control center & team management</p></div>
               </div>
@@ -1166,7 +1331,16 @@ const App: React.FC = () => {
                       <p className="text-xs text-slate-400 font-medium">Manage who can access and edit inventory</p>
                     </div>
                   </div>
-                  <button onClick={() => setIsUserModalOpen(true)} className="p-2.5 bg-purple-600 text-white rounded-xl hover:bg-purple-700 transition-all flex items-center gap-2 font-bold text-xs uppercase tracking-widest">
+                  <button 
+                    onClick={() => {
+                      setEditingUser(null); // Reset for add mode
+                      setNewUserName('');
+                      setNewUserEmail('');
+                      setNewUserRole('viewer');
+                      setIsTeamMemberModalOpen(true);
+                    }} 
+                    className="p-2.5 bg-purple-600 text-white rounded-xl hover:bg-purple-700 transition-all flex items-center gap-2 font-bold text-xs uppercase tracking-widest"
+                  >
                     <UserPlus size={16}/> <span className="hidden sm:inline">Add Member</span>
                   </button>
                 </div>
@@ -1189,10 +1363,23 @@ const App: React.FC = () => {
                           onChange={(e) => handleUpdateUserRole(member.id, e.target.value as UserRole)}
                           className="bg-white dark:bg-slate-900 border dark:border-slate-700 rounded-lg px-3 py-1.5 text-xs font-bold outline-none focus:ring-2 focus:ring-purple-500"
                         >
-                          <option value="admin">Admin</option>
-                          <option value="editor">Editor</option>
                           <option value="viewer">Viewer</option>
+                          <option value="editor">Editor</option>
+                          <option value="admin">Admin</option>
                         </select>
+                        <button 
+                          onClick={() => {
+                            setEditingUser(member); // Set for edit mode
+                            setNewUserName(member.name);
+                            setNewUserEmail(member.email);
+                            setNewUserRole(member.role);
+                            setIsTeamMemberModalOpen(true);
+                          }} 
+                          className="p-2 text-slate-400 hover:text-amber-500 transition-colors opacity-0 group-hover:opacity-100"
+                          title="Edit Member"
+                        >
+                          <Edit3 size={16}/>
+                        </button>
                         <button onClick={() => handleRemoveUser(member.id)} className="p-2 text-slate-400 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100">
                           <Trash2 size={16}/>
                         </button>
@@ -1209,7 +1396,15 @@ const App: React.FC = () => {
                   <div key={item.id} className="bg-white dark:bg-slate-900 p-6 rounded-[2.5rem] border dark:border-slate-800 space-y-4 group">
                     <div className="flex justify-between items-start">
                       <div className="truncate pr-4"><p className="font-bold truncate text-lg">{item.name}</p><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{item.sku}</p></div>
-                      <button onClick={() => window.print()} className="p-3 bg-slate-100 dark:bg-slate-800 rounded-2xl hover:bg-blue-600 hover:text-white transition-all"><Printer size={20}/></button>
+                      <button 
+                        onClick={() => {
+                          setProductToPrint(item);
+                          setIsPrintOptionsModalOpen(true);
+                        }} 
+                        className="p-3 bg-slate-100 dark:bg-slate-800 rounded-2xl hover:bg-blue-600 hover:text-white transition-all"
+                      >
+                        <Printer size={20}/>
+                      </button>
                     </div>
                     <Barcode value={item.sku} className="border dark:border-slate-700" />
                   </div>
@@ -1223,7 +1418,7 @@ const App: React.FC = () => {
       {/* Modals Section */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-lg p-6 lg:p-8 border dark:border-slate-800 overflow-y-auto max-h-[90vh] relative custom-scrollbar">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-sm sm:max-w-md lg:max-w-lg p-4 sm:p-6 lg:p-8 border dark:border-slate-800 overflow-y-auto max-h-[90vh] relative custom-scrollbar">
             {isLoading && <div className="absolute inset-0 bg-white/50 dark:bg-slate-900/50 backdrop-blur-[1px] z-10 flex items-center justify-center"><Loader2 className="animate-spin text-blue-600" size={40}/></div>}
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-xl font-bold">{editingProduct ? 'Edit' : 'Add'} Product</h3>
@@ -1238,7 +1433,7 @@ const App: React.FC = () => {
               </div>
             </div>
             <form onSubmit={handleSaveProduct} className="space-y-4">
-              <div className="flex gap-4">
+              <div className="flex flex-col sm:flex-row gap-4"> {/* Responsive flex for image/SKU */}
                 <div className="w-24 h-24 bg-slate-100 dark:bg-slate-800 rounded-2xl overflow-hidden flex-shrink-0 flex items-center justify-center border dark:border-slate-700">
                   {modalImage ? <img src={modalImage} className="w-full h-full object-cover" /> : <ImageIcon size={24} className="text-slate-300"/>}
                 </div>
@@ -1263,7 +1458,7 @@ const App: React.FC = () => {
                 <input required className="w-full px-4 py-2 border rounded-xl dark:bg-slate-800 dark:border-slate-700 outline-none font-bold" value={modalName} onChange={e => setModalName(e.target.value)} />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1">
                   <label className="text-[10px] font-black uppercase text-slate-400">Category</label>
                   <select className="w-full px-4 py-2 border rounded-xl dark:bg-slate-800 dark:border-slate-700 outline-none font-bold" value={modalCategory} onChange={e => setModalCategory(e.target.value)}>
@@ -1310,15 +1505,15 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {/* Team Member Modal */}
-      {isUserModalOpen && (
+      {/* Team Member Modal (Add/Edit) */}
+      {isTeamMemberModalOpen && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl w-full max-sm p-8 border dark:border-slate-800 space-y-6 animate-in zoom-in-95">
+          <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl w-full max-w-sm sm:max-w-md p-4 sm:p-6 lg:p-8 border dark:border-slate-800 space-y-6 animate-in zoom-in-95">
              <div className="flex justify-between items-center">
-              <h3 className="text-xl font-black">Add Team Member</h3>
-              <button onClick={() => setIsUserModalOpen(false)} className="p-1 text-slate-400 hover:text-slate-100"><X/></button>
+              <h3 className="text-xl font-black">{editingUser ? 'Edit Team Member' : 'Add Team Member'}</h3>
+              <button onClick={() => setIsTeamMemberModalOpen(false)} className="p-1 text-slate-400 hover:text-slate-600"><X/></button>
             </div>
-            <form onSubmit={handleAddUser} className="space-y-4">
+            <form onSubmit={handleAddOrEditTeamMember} className="space-y-4">
               <div className="space-y-1">
                 <label className="text-[10px] font-black uppercase text-slate-400">Full Name</label>
                 <input 
@@ -1341,7 +1536,7 @@ const App: React.FC = () => {
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-[10px] font-black uppercase text-slate-400">Initial Role</label>
+                <label className="text-[10px] font-black uppercase text-slate-400">Role</label>
                 <select 
                   className="w-full px-4 py-3 border rounded-xl dark:bg-slate-800 dark:border-slate-700 font-bold"
                   value={newUserRole}
@@ -1352,7 +1547,9 @@ const App: React.FC = () => {
                   <option value="admin">Admin (Full Control)</option>
                 </select>
               </div>
-              <button className="w-full py-4 bg-purple-600 text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-purple-700 transition-all shadow-xl shadow-purple-500/20">Invite Member</button>
+              <button className="w-full py-4 bg-purple-600 text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-purple-700 transition-all shadow-xl shadow-purple-500/20">
+                {editingUser ? 'Save Changes' : 'Invite Member'}
+              </button>
             </form>
           </div>
         </div>
@@ -1360,10 +1557,10 @@ const App: React.FC = () => {
 
       {isTransferModalOpen && transferProduct && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[110] flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl w-full max-sm p-8 border dark:border-slate-800 space-y-6">
+          <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl w-full max-w-sm sm:max-w-md p-4 sm:p-6 lg:p-8 border dark:border-slate-800 space-y-6">
             <div className="flex justify-between items-center">
               <h3 className="text-xl font-black">Transfer Stock</h3>
-              <button onClick={() => setIsTransferModalOpen(false)}><X/></button>
+              <button onClick={() => setIsTransferModalOpen(false)} className="p-1 text-slate-400 hover:text-slate-600"><X/></button>
             </div>
             <div className="text-center">
               <p className="font-bold text-lg">{transferProduct.name}</p>
@@ -1398,7 +1595,7 @@ const App: React.FC = () => {
 
       {isClearAllModalOpen && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-[150] flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl w-full max-sm p-8 border dark:border-slate-800 text-center space-y-6">
+          <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl w-full max-w-sm sm:max-w-md p-4 sm:p-6 lg:p-8 border dark:border-slate-800 text-center space-y-6">
             <div className="w-20 h-20 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-3xl flex items-center justify-center mx-auto">
               <AlertOctagon size={40} />
             </div>
@@ -1416,10 +1613,10 @@ const App: React.FC = () => {
 
       {isCategoryModalOpen && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-md p-6 lg:p-8 border dark:border-slate-800">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-sm sm:max-w-md p-4 sm:p-6 lg:p-8 border dark:border-slate-800 overflow-y-auto max-h-[90vh]">
              <div className="flex justify-between items-center mb-6">
               <h3 className="text-xl font-bold">Category</h3>
-              <button onClick={() => setIsCategoryModalOpen(false)}><X/></button>
+              <button onClick={() => setIsCategoryModalOpen(false)} className="p-1 text-slate-400 hover:text-slate-600"><X/></button>
             </div>
             <form onSubmit={(e) => {
                e.preventDefault();
@@ -1440,10 +1637,10 @@ const App: React.FC = () => {
 
       {isLocationModalOpen && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-sm p-6 lg:p-8 border dark:border-slate-800">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-sm sm:max-w-md p-4 sm:p-6 lg:p-8 border dark:border-slate-800 overflow-y-auto max-h-[90vh]">
              <div className="flex justify-between items-center mb-6">
               <h3 className="text-xl font-bold">New Zone</h3>
-              <button onClick={() => setIsLocationModalOpen(false)}><X/></button>
+              <button onClick={() => setIsLocationModalOpen(false)} className="p-1 text-slate-400 hover:text-slate-600"><X/></button>
             </div>
             <form onSubmit={(e) => {
                e.preventDefault();
@@ -1463,6 +1660,26 @@ const App: React.FC = () => {
       )}
 
       {isScannerOpen && <ScannerModal onScan={handleScanResult} onClose={() => setIsScannerOpen(false)} title={scannerTarget === 'audit' ? 'Stock Auditing' : 'Scanning...'} />}
+
+      {isNotificationPageOpen && (
+        <NotificationPage 
+          logs={logs} 
+          onClose={() => setIsNotificationPageOpen(false)} 
+          onClearLogs={clearLogs}
+          settings={settings}
+          stats={stats}
+        />
+      )}
+
+      {isPrintOptionsModalOpen && productToPrint && (
+        <PrintOptionsModal 
+          product={productToPrint}
+          onClose={() => {
+            setIsPrintOptionsModalOpen(false);
+            setProductToPrint(null);
+          }}
+        />
+      )}
 
       {toast && (
         <div className="fixed bottom-8 left-1/2 -translate-x-1/2 bg-slate-900 dark:bg-white dark:text-slate-900 text-white px-6 py-3 rounded-full shadow-2xl animate-in slide-in-from-bottom-4 font-bold z-[200]">
