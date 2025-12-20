@@ -45,8 +45,3 @@ export interface ActivityLog {
 }
 
 export type Section = 'dashboard' | 'inventory' | 'categories' | 'locations' | 'reports' | 'settings' | 'print';
-
-export interface GroundingSource {
-  title: string;
-  uri: string;
-}

@@ -9,50 +9,19 @@ import {
   Plus, 
   Trash2, 
   Edit3, 
-  TrendingUp, 
-  MapPin, 
   ChevronRight, 
-  Loader2, 
   X, 
   Scan, 
-  Maximize, 
   Menu, 
   ChevronLeft, 
-  BarChart3,
   CheckCircle2,
   AlertCircle,
   AlertTriangle,
-  Info,
-  MapPinned,
-  Store,
   DollarSign,
-  ShieldCheck,
-  RotateCcw,
-  Download,
-  Image as ImageIcon,
-  Upload,
-  Hash,
+  ArrowRightLeft,
+  UserPlus,
   FileSpreadsheet,
   FileText,
-  Database,
-  QrCode,
-  Images,
-  Truck,
-  Printer,
-  Grid,
-  Check,
-  Moon,
-  Sun,
-  Camera,
-  History,
-  FileUp,
-  AlertOctagon,
-  RefreshCw,
-  Globe,
-  ArrowRightLeft,
-  Users,
-  Shield,
-  UserPlus,
   FileJson,
   FileCode,
   File as FileIcon,
@@ -61,8 +30,16 @@ import {
   Repeat,
   LogOut,
   User as UserIcon,
-  Lock,
-  UserRoundPlus
+  MapPinned,
+  Printer,
+  Moon,
+  Sun,
+  History,
+  FileUp,
+  AlertOctagon,
+  RefreshCw,
+  Shield,
+  ImageIcon // Add ImageIcon import here
 } from 'lucide-react';
 import { Product, Category, Section, AppSettings, ActivityLog, User, UserRole } from './types';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
@@ -275,6 +252,7 @@ const PrintOptionsModal: React.FC<{
 
         <div className="space-y-4">
           <div className="w-full h-auto bg-slate-100 dark:bg-slate-800 rounded-2xl overflow-hidden flex-shrink-0 flex items-center justify-center border dark:border-slate-700 aspect-video">
+            {/* Fix: Use the imported ImageIcon component */}
             {product.image ? <img src={product.image} className="w-full h-full object-cover" alt={product.name} /> : <ImageIcon size={48} className="text-slate-300"/>}
           </div>
           <p className="font-bold text-lg">{product.name}</p>
@@ -379,14 +357,16 @@ const DashboardView: React.FC<{ stats: any, inventory: Product[], settings: AppS
   );
 };
 
-const InventoryView: React.FC<{ 
+interface InventoryViewProps { 
   inventory: Product[], 
   onAdd: () => void, 
   onEdit: (p: Product) => void, 
   onDelete: (id: string) => void, 
   onTransfer: (p: Product) => void,
   settings: AppSettings
-}> = ({ inventory, onAdd, onEdit, onDelete, onTransfer, settings }) => (
+}
+
+const InventoryView: React.FC<InventoryViewProps> = ({ inventory, onAdd, onEdit, onDelete, onTransfer, settings }) => (
   <div className="space-y-6 animate-in slide-in-from-bottom-4">
     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
       <div><h2 className="text-3xl font-black">Inventory</h2><p className="text-slate-500 dark:text-slate-400 font-medium">Manage and monitor stock levels</p></div>
@@ -406,6 +386,7 @@ const InventoryView: React.FC<{
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-4">
                       <div className="w-12 h-12 rounded-xl bg-slate-100 dark:bg-slate-800 overflow-hidden flex-shrink-0 border dark:border-slate-700 flex items-center justify-center">
+                        {/* Fix: Use the imported ImageIcon component */}
                         {item.image ? <img src={item.image} alt={item.name} className="w-full h-full object-cover" /> : <div className="text-slate-300 dark:text-slate-600"><ImageIcon size={20} /></div>}
                       </div>
                       <div>
@@ -486,7 +467,8 @@ const LocationsView: React.FC<{
         return (
           <div key={loc} className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] border dark:border-slate-800 space-y-6 group hover:shadow-2xl transition-all">
             <div className="flex justify-between items-start">
-              <div className="w-12 h-12 bg-emerald-50 dark:bg-emerald-900/20 rounded-2xl flex items-center justify-center text-emerald-600 dark:text-emerald-400"><MapPin size={24}/></div>
+              {/* Fix: Use the imported MapPinned component instead of MapPin */}
+              <div className="w-12 h-12 bg-emerald-50 dark:bg-emerald-900/20 rounded-2xl flex items-center justify-center text-emerald-600 dark:text-emerald-400"><MapPinned size={24}/></div>
               <button onClick={() => onDelete(loc)} className="p-2 text-slate-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 size={18}/></button>
             </div>
             <h3 className="text-xl font-black">{loc}</h3>
@@ -921,7 +903,7 @@ const App: React.FC = () => {
           setIsModalOpen(true);
         } else {
           setToast({ message: `Item Detected: ${p.name}`, type: 'info' });
-          addLog(`Audit Scan: ${p.name} (${p.sku}) identified`, 'update'); // Changed type from 'ai' to 'update'
+          addLog(`Audit Scan: ${p.name} (${p.sku}) identified`, 'update');
         }
       } else {
         setToast({ message: 'SKU not found in inventory', type: 'error' });
@@ -1028,8 +1010,7 @@ const App: React.FC = () => {
     downloadAnchorNode.setAttribute("download", `${settings.storeName}_Inventory.json`);
     document.body.appendChild(downloadAnchorNode);
     downloadAnchorNode.click();
-    // Fix: 'link' is not defined, use 'downloadAnchorNode' instead.
-    document.body.removeChild(downloadAnchorNode);
+    document.body.removeChild(downloadAnchorNode); // Fix: Use downloadAnchorNode instead of undefined 'link'
     setToast({ message: 'JSON exported', type: 'success' });
   };
 
@@ -1526,17 +1507,16 @@ const App: React.FC = () => {
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
           <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-sm sm:max-w-md lg:max-w-lg p-4 sm:p-6 lg:p-8 border dark:border-slate-800 overflow-y-auto max-h-[90vh] relative custom-scrollbar">
-            {/* Removed isLoading overlay as there are no AI-related loading states here anymore */}
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-xl font-bold">{editingProduct ? 'Edit' : 'Add'} Product</h3>
               <div className="flex items-center gap-2">
-                {/* Removed Magic Entry button */}
                 <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600 p-1"><X/></button>
               </div>
             </div>
             <form onSubmit={handleSaveProduct} className="space-y-4">
               <div className="flex flex-col sm:flex-row gap-4"> {/* Responsive flex for image/SKU */}
                 <div className="w-24 h-24 bg-slate-100 dark:bg-slate-800 rounded-2xl overflow-hidden flex-shrink-0 flex items-center justify-center border dark:border-slate-700">
+                  {/* Fix: Use the imported ImageIcon component */}
                   {modalImage ? <img src={modalImage} className="w-full h-full object-cover" /> : <ImageIcon size={24} className="text-slate-300"/>}
                 </div>
                 <div className="flex-1 space-y-1">
@@ -1595,7 +1575,6 @@ const App: React.FC = () => {
               <div className="space-y-1">
                 <div className="flex justify-between items-center mb-1">
                   <label htmlFor="modalDescription" className="text-[10px] font-black uppercase text-slate-400">Description</label>
-                  {/* Removed AI Generate button */}
                 </div>
                 <textarea id="modalDescription" className="w-full px-4 py-2 border rounded-xl dark:bg-slate-800 dark:border-slate-700 outline-none min-h-[80px]" value={modalDescription} onChange={e => setModalDescription(e.target.value)} />
               </div>
