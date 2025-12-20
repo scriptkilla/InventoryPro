@@ -39,7 +39,7 @@ import {
   AlertOctagon,
   RefreshCw,
   Shield,
-  ImageIcon // Add ImageIcon import here
+  ImageIcon
 } from 'lucide-react';
 import { Product, Category, Section, AppSettings, ActivityLog, User, UserRole } from './types';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
@@ -252,7 +252,6 @@ const PrintOptionsModal: React.FC<{
 
         <div className="space-y-4">
           <div className="w-full h-auto bg-slate-100 dark:bg-slate-800 rounded-2xl overflow-hidden flex-shrink-0 flex items-center justify-center border dark:border-slate-700 aspect-video">
-            {/* Fix: Use the imported ImageIcon component */}
             {product.image ? <img src={product.image} className="w-full h-full object-cover" alt={product.name} /> : <ImageIcon size={48} className="text-slate-300"/>}
           </div>
           <p className="font-bold text-lg">{product.name}</p>
@@ -386,7 +385,6 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, onAdd, onEdit,
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-4">
                       <div className="w-12 h-12 rounded-xl bg-slate-100 dark:bg-slate-800 overflow-hidden flex-shrink-0 border dark:border-slate-700 flex items-center justify-center">
-                        {/* Fix: Use the imported ImageIcon component */}
                         {item.image ? <img src={item.image} alt={item.name} className="w-full h-full object-cover" /> : <div className="text-slate-300 dark:text-slate-600"><ImageIcon size={20} /></div>}
                       </div>
                       <div>
@@ -467,7 +465,6 @@ const LocationsView: React.FC<{
         return (
           <div key={loc} className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] border dark:border-slate-800 space-y-6 group hover:shadow-2xl transition-all">
             <div className="flex justify-between items-start">
-              {/* Fix: Use the imported MapPinned component instead of MapPin */}
               <div className="w-12 h-12 bg-emerald-50 dark:bg-emerald-900/20 rounded-2xl flex items-center justify-center text-emerald-600 dark:text-emerald-400"><MapPinned size={24}/></div>
               <button onClick={() => onDelete(loc)} className="p-2 text-slate-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 size={18}/></button>
             </div>
@@ -695,6 +692,9 @@ const App: React.FC = () => {
 
   // Import/Export Refs
   const importInputRef = useRef<HTMLInputElement>(null);
+  // Ref for the hidden file input for product image
+  const imageInputRef = useRef<HTMLInputElement>(null);
+
 
   // Auth effects
   useEffect(() => {
@@ -1183,6 +1183,34 @@ const App: React.FC = () => {
     setNewPhoneNumber('');
   };
 
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (!file.type.startsWith('image/')) {
+        setToast({ message: 'Please upload an image file (e.g., JPEG, PNG, GIF)', type: 'error' });
+        return;
+      }
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setModalImage(reader.result as string);
+        setToast({ message: 'Image uploaded successfully!', type: 'success' });
+      };
+      reader.onerror = () => {
+        setToast({ message: 'Failed to read image file.', type: 'error' });
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleClearImage = () => {
+    setModalImage(null);
+    if (imageInputRef.current) {
+      imageInputRef.current.value = ''; // Clear the file input as well
+    }
+    setToast({ message: 'Image cleared.', type: 'info' });
+  };
+
+
   if (!isLoggedIn) {
     return (
       <div className="flex h-screen bg-slate-50 dark:bg-slate-950 overflow-hidden text-slate-900 dark:text-slate-100 transition-colors duration-300">
@@ -1515,9 +1543,32 @@ const App: React.FC = () => {
             </div>
             <form onSubmit={handleSaveProduct} className="space-y-4">
               <div className="flex flex-col sm:flex-row gap-4"> {/* Responsive flex for image/SKU */}
-                <div className="w-24 h-24 bg-slate-100 dark:bg-slate-800 rounded-2xl overflow-hidden flex-shrink-0 flex items-center justify-center border dark:border-slate-700">
-                  {/* Fix: Use the imported ImageIcon component */}
-                  {modalImage ? <img src={modalImage} className="w-full h-full object-cover" /> : <ImageIcon size={24} className="text-slate-300"/>}
+                <div className="w-24 h-24 flex-shrink-0 relative">
+                  {modalImage ? (
+                    <>
+                      <img src={modalImage} className="w-full h-full object-cover rounded-2xl border dark:border-slate-700" alt="Product" />
+                      <button
+                        type="button"
+                        onClick={handleClearImage}
+                        className="absolute -top-2 -right-2 p-1 bg-red-500 text-white rounded-full text-xs hover:bg-red-600 transition-colors"
+                        title="Clear image"
+                      >
+                        <X size={16} />
+                      </button>
+                    </>
+                  ) : (
+                    <label className="flex flex-col items-center justify-center w-full h-full bg-slate-100 dark:bg-slate-800 rounded-2xl border-2 border-dashed border-slate-300 dark:border-slate-700 cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">
+                      <ImageIcon size={24} className="text-slate-400" />
+                      <span className="text-xs text-slate-500 dark:text-slate-400 mt-1">Add Image</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleImageUpload}
+                        className="hidden"
+                        ref={imageInputRef}
+                      />
+                    </label>
+                  )}
                 </div>
                 <div className="flex-1 space-y-1">
                   <label htmlFor="modalSku" className="text-[10px] font-black uppercase text-slate-400">SKU</label>
